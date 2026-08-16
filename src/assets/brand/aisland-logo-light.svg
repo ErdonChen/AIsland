@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 360" width="1240" height="360">
+  <defs>
+    <linearGradient id="lpeak3" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#C9ECFF"/>
+      <stop offset="1" stop-color="#4FAEE8"/>
+    </linearGradient>
+    <linearGradient id="lsnow3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DDF2FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 横版 LOGO（浅色文字版，用于深色背景） -->
+  <g transform="translate(28,28) scale(0.296875)">
+    <path d="M712 275q9 27 36 36q-27 9-36 36q-9-27-36-36q27-9 36-36Z" fill="#57B8F2"/>
+    <path d="M330 330q5 19 24 24q-19 5-24 24q-5-19-24-24q19-5 24-24Z" fill="#7CC9F5" opacity="0.9"/>
+    <rect x="250" y="608" width="524" height="10" rx="5" fill="#57B8F2"/>
+    <path d="M236 648q38 15 82 6" stroke="#7CC9F5" stroke-opacity="0.8" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M700 640q-34 14 -74 5" stroke="#7CC9F5" stroke-opacity="0.7" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M286 684q30 12 64 4" stroke="#7CC9F5" stroke-opacity="0.55" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M742 676q-26 11 -56 4" stroke="#7CC9F5" stroke-opacity="0.5" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M392 636q24 9 50 3" stroke="#7CC9F5" stroke-opacity="0.6" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M586 630q22 8 46 3" stroke="#7CC9F5" stroke-opacity="0.55" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M470 700q20 8 44 3" stroke="#7CC9F5" stroke-opacity="0.4" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path fill-rule="evenodd" fill="url(#lpeak3)" d="M512 296L690 608L334 608ZM512 436L566 548L458 548Z"/>
+    <path d="M512 296L690 608L598 608L512 428Z" fill="#1E6FB8" opacity="0.3"/>
+    <path d="M512 296L560 386Q545 402 528 390Q520 400 512 390Q504 400 496 390Q479 402 464 386Z" fill="url(#lsnow3)"/>
+  </g>
+
+  <text x="392" y="238" font-family="'Segoe UI Variable Display','Segoe UI',Inter,Arial,sans-serif" font-size="172" font-weight="700" letter-spacing="-2" fill="#EAF7FF">AIsland</text>
+</svg>

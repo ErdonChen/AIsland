@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/ErdonChen/AIsland/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue.
+  - name: Support policy
+    url: https://github.com/ErdonChen/AIsland/blob/main/SUPPORT.md
+    about: Check supported platforms and support boundaries.

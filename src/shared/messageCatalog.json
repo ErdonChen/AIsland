@@ -1,0 +1,46 @@
+{
+  "messages": {
+    "errors.invalidInput": { "zh-CN": "输入无效", "en-US": "Invalid input" },
+    "errors.notFound": { "zh-CN": "未找到目标", "en-US": "Item not found" },
+    "errors.conflict": { "zh-CN": "内容已在别处更新，请刷新后重试", "en-US": "The item changed elsewhere. Refresh and try again." },
+    "errors.storageUnavailable": { "zh-CN": "本地存储不可用", "en-US": "Local storage is unavailable" },
+    "errors.databaseFailure": { "zh-CN": "数据库操作失败", "en-US": "Database operation failed" },
+    "errors.ioFailure": { "zh-CN": "文件操作失败", "en-US": "File operation failed" },
+    "errors.permissionDenied": { "zh-CN": "没有所需权限", "en-US": "Required permission was denied" },
+    "errors.sourceUnavailable": { "zh-CN": "数据来源暂不可用", "en-US": "The data source is unavailable" },
+    "errors.platformUnsupported": { "zh-CN": "当前平台不支持此功能", "en-US": "This feature is not supported on the current platform" },
+    "errors.integrationUnsupported": { "zh-CN": "此代理环境不受支持", "en-US": "This agent environment is not supported" },
+    "errors.integrationNotInstalled": { "zh-CN": "尚未安装代理集成", "en-US": "The agent integration is not installed" },
+    "errors.integrationConfigInvalid": { "zh-CN": "代理集成配置无效", "en-US": "The agent integration configuration is invalid" },
+    "errors.notificationUnavailable": { "zh-CN": "Windows 通知不可用", "en-US": "Windows notifications are unavailable" },
+    "errors.serviceStopping": { "zh-CN": "服务正在停止", "en-US": "The service is stopping" },
+    "settings.storage.retentionConfirmationRequired": { "zh-CN": "此操作将删除 {clipboardRemovalCount} 条剪贴板记录和 {notificationRemovalCount} 条通知记录", "en-US": "This will remove {clipboardRemovalCount} clipboard records and {notificationRemovalCount} notification records" },
+    "services.healthy": { "zh-CN": "{serviceId} 运行正常", "en-US": "{serviceId} is healthy" },
+    "services.degraded": { "zh-CN": "{serviceId} 受限：{reasonCode}", "en-US": "{serviceId} is degraded: {reasonCode}" },
+    "services.blocked": { "zh-CN": "{serviceId} 已阻止：{reasonCode}", "en-US": "{serviceId} is blocked: {reasonCode}" },
+    "services.offline": { "zh-CN": "{serviceId} 离线：{reasonCode}", "en-US": "{serviceId} is offline: {reasonCode}" },
+    "services.clipboard.locked": { "zh-CN": "剪贴板暂不可用，已跳过 {count} 次读取", "en-US": "Clipboard is unavailable; {count} reads were skipped" },
+    "reminders.agent.status": { "zh-CN": "{agentName}（{environment}）任务 {taskTitle}（{taskId}）状态变为 {triggerStatus}", "en-US": "{agentName} ({environment}) task {taskTitle} ({taskId}) changed to {triggerStatus}" },
+    "reminders.todo.due": { "zh-CN": "待办到期：{todoTitle}", "en-US": "To-do due: {todoTitle}" },
+    "reminders.monitor.threshold": { "zh-CN": "{metric} 当前为 {currentValue}，阈值为 {thresholdValue}", "en-US": "{metric} is {currentValue}; threshold {thresholdValue}" },
+    "home.agents.more": { "zh-CN": "+{count}", "en-US": "+{count}" },
+    "onboarding.consentRequired": { "zh-CN": "需要先确认隐私同意", "en-US": "Privacy consent is required" }
+  },
+  "parameterEnums": {
+    "triggerStatus": {
+      "completed": { "zh-CN": "已完成", "en-US": "Completed" },
+      "failed": { "zh-CN": "失败", "en-US": "Failed" },
+      "waiting": { "zh-CN": "等待操作", "en-US": "Waiting" },
+      "timeout": { "zh-CN": "已超时", "en-US": "Timed out" }
+    },
+    "metric": {
+      "cpu": { "zh-CN": "CPU", "en-US": "CPU" },
+      "memory": { "zh-CN": "内存", "en-US": "Memory" },
+      "diskRead": { "zh-CN": "磁盘读取", "en-US": "Disk read" },
+      "diskWrite": { "zh-CN": "磁盘写入", "en-US": "Disk write" },
+      "networkReceive": { "zh-CN": "网络接收", "en-US": "Network receive" },
+      "networkSend": { "zh-CN": "网络发送", "en-US": "Network send" },
+      "gpu": { "zh-CN": "GPU", "en-US": "GPU" }
+    }
+  }
+}

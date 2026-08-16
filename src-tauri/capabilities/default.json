@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "AIceLand main window capability",
+  "windows": [
+    "main",
+    "reminder-alert"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "notification:default"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "session_id": "session-42",
+  "event_id": "native-session-start-9",
+  "sequence": 7,
+  "task_title": "Refactor task runner",
+  "project": "AIceLand",
+  "message": "Session is ready",
+  "path": "X:\\work\\aiceland",
+  "prompt": "do not persist this prompt",
+  "tool_body": "do not persist this tool body"
+}

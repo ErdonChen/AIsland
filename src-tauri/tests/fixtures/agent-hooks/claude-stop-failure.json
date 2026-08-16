@@ -1,0 +1,6 @@
+{
+  "session_id": "claude-stop-1",
+  "event_id": "claude-native-2",
+  "failure_reason": "process exited 1",
+  "tool_body": "not status data"
+}

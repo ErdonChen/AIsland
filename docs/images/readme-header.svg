@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title description">
+  <title id="title">AIsland</title>
+  <desc id="description">AIsland logo on a dark blue header</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a111d"/>
+      <stop offset="1" stop-color="#10283d"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.25" cy="0.5" r="0.55">
+      <stop offset="0" stop-color="#49a6e8" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#49a6e8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="peak" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#c9ecff"/>
+      <stop offset="1" stop-color="#4faee8"/>
+    </linearGradient>
+    <linearGradient id="snow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ddf2ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="320" rx="42" fill="url(#background)"/>
+  <rect width="1200" height="320" rx="42" fill="url(#glow)"/>
+
+  <g transform="translate(70 18) scale(0.28)">
+    <path d="M712 275q9 27 36 36q-27 9-36 36q-9-27-36-36q27-9 36-36Z" fill="#57b8f2"/>
+    <path d="M330 330q5 19 24 24q-19 5-24 24q-5-19-24-24q19-5 24-24Z" fill="#7cc9f5" opacity="0.9"/>
+    <rect x="250" y="608" width="524" height="10" rx="5" fill="#57b8f2"/>
+    <path d="M236 648q38 15 82 6M700 640q-34 14-74 5M286 684q30 12 64 4M742 676q-26 11-56 4" stroke="#7cc9f5" stroke-opacity="0.62" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path fill-rule="evenodd" fill="url(#peak)" d="M512 296L690 608L334 608ZM512 436L566 548L458 548Z"/>
+    <path d="M512 296L690 608L598 608L512 428Z" fill="#1e6fb8" opacity="0.3"/>
+    <path d="M512 296L560 386Q545 402 528 390Q520 400 512 390Q504 400 496 390Q479 402 464 386Z" fill="url(#snow)"/>
+  </g>
+
+  <text x="365" y="165" font-family="Segoe UI Variable Display, Segoe UI, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-2" fill="#eaf7ff">AIsland</text>
+  <text x="370" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="27" letter-spacing="1.5" fill="#8fcdf2">MULTI-AGENT STATUS ISLAND FOR WINDOWS</text>
+</svg>

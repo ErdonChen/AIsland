@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AIceLand",
+  "version": "0.1.0",
+  "identifier": "com.aiceland.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npx --yes pnpm@10.15.0 dev",
+    "beforeBuildCommand": "npx --yes pnpm@10.15.0 build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "AIsland",
+        "width": 248,
+        "height": 46,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "zoomHotkeysEnabled": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "shadow": false,
+        "center": false
+      },
+      {
+        "label": "reminder-alert",
+        "title": "AIsland 提醒",
+        "width": 360,
+        "height": 220,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "zoomHotkeysEnabled": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/ErdonChen/AIsland/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5NUM0RDBGNDVBRTI5MEYKUldRUEthNUZEMDFjcWNlNWlLcmdNN0FPNk1MOEJtdHk0aFZ5dW1VOHp2YVN2R2M5Wk1EK1VQVTEK"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "resources": {
+      "agent-hooks/aiceland-status-windows.ps1": "agent-hooks/aiceland-status-windows.ps1",
+      "agent-hooks/aiceland-profile-event-windows.ps1": "agent-hooks/aiceland-profile-event-windows.ps1",
+      "agent-hooks/aiceland-status-wsl.sh": "agent-hooks/aiceland-status-wsl.sh",
+      "agent-hooks/aiceland-config-wsl.sh": "agent-hooks/aiceland-config-wsl.sh",
+      "../README.md": "README.md"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

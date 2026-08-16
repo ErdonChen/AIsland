@@ -1,0 +1,219 @@
+name: Release signed Windows updater
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing semantic version tag to release (for example v0.1.0)
+        required: true
+        type: string
+      publish:
+        description: Publish the verified draft and mark it latest
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-windows:
+    name: Build and verify signed Windows updater
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Resolve and verify the release version
+        shell: pwsh
+        env:
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+        run: |
+          $tag = if ($env:RELEASE_EVENT_NAME -eq "workflow_dispatch") {
+            $env:RELEASE_INPUT_TAG
+          } else {
+            $env:RELEASE_REF_NAME
+          }
+
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') {
+            throw "Release tag '$tag' must be a semantic version prefixed with v."
+          }
+          $tagVersion = $Matches.version
+
+          $packageVersion = (Get-Content -Raw -LiteralPath package.json | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content -Raw -LiteralPath src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $cargoToml = Get-Content -Raw -LiteralPath src-tauri/Cargo.toml
+          $packageSection = [regex]::Match($cargoToml, '(?ms)^\[package\]\s*(?<body>.*?)(?=^\[|\z)')
+          $cargoVersionMatch = [regex]::Match($packageSection.Groups['body'].Value, '(?m)^version\s*=\s*"(?<version>[^"]+)"')
+          if (-not $packageSection.Success -or -not $cargoVersionMatch.Success) {
+            throw "Could not read the Rust package version from src-tauri/Cargo.toml."
+          }
+          $cargoVersion = $cargoVersionMatch.Groups['version'].Value
+
+          $versions = @($tagVersion, $packageVersion, $tauriVersion, $cargoVersion) | Select-Object -Unique
+          if ($versions.Count -ne 1) {
+            throw "Version mismatch: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
+          }
+
+          "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          "APP_VERSION=$tagVersion" >> $env:GITHUB_ENV
+
+      - name: Verify signed updater configuration
+        shell: pwsh
+        env:
+          AUTHENTICODE_RELEASE_ENABLED: ${{ vars.AUTHENTICODE_RELEASE_ENABLED }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if ($env:AUTHENTICODE_RELEASE_ENABLED -ne "true") {
+            throw "Binary releases remain disabled until trusted Authenticode signing is configured and AUTHENTICODE_RELEASE_ENABLED=true."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "The TAURI_SIGNING_PRIVATE_KEY repository secret is required."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
+            throw "The TAURI_SIGNING_PRIVATE_KEY_PASSWORD repository secret is required."
+          }
+
+          $config = Get-Content -Raw -LiteralPath src-tauri/tauri.conf.json | ConvertFrom-Json
+          if ($config.bundle.createUpdaterArtifacts -ne $true) {
+            throw "bundle.createUpdaterArtifacts must be true before publishing."
+          }
+
+          $expectedEndpoint = "https://github.com/ErdonChen/AIsland/releases/latest/download/latest.json"
+          $endpoints = @($config.plugins.updater.endpoints)
+          if ($endpoints.Count -ne 1 -or $endpoints[0] -ne $expectedEndpoint) {
+            throw "The updater endpoint must be exactly $expectedEndpoint"
+          }
+          if ([string]::IsNullOrWhiteSpace([string]$config.plugins.updater.pubkey)) {
+            throw "The updater public key must be embedded in tauri.conf.json."
+          }
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+
+      - name: Cache Rust build outputs
+        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify the release workflow contract
+        run: node --test .github/scripts/verify-release-workflow.mjs
+
+      - name: Run frontend tests
+        run: pnpm test
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+      - name: Build a signed draft release
+        uses: tauri-apps/tauri-action@944946e3e4cac6603d1fe8f514171e9ecd3c78aa # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: AIsland v__VERSION__
+          releaseBody: Signed AIsland Windows installer and updater metadata.
+          releaseDraft: true
+          prerelease: false
+          generateReleaseNotes: true
+          tauriScript: pnpm tauri
+          args: --bundles nsis
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true
+          retryAttempts: 1
+
+      - name: Verify trusted Authenticode signatures
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -Filter *.exe -File)
+          if ($installers.Count -eq 0) {
+            throw "No Windows NSIS installer was produced for Authenticode verification."
+          }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+            if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+              throw "The installer '$($installer.Name)' does not have a valid trusted Authenticode signature: $($signature.Status)."
+            }
+            if ($null -eq $signature.SignerCertificate) {
+              throw "The installer '$($installer.Name)' is missing its Authenticode signer certificate."
+            }
+            if ($null -eq $signature.TimeStamperCertificate) {
+              throw "The installer '$($installer.Name)' is missing a trusted timestamp."
+            }
+          }
+
+      - name: Verify updater assets before publication
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $release = gh release view $env:RELEASE_TAG --json isDraft,assets | ConvertFrom-Json
+          if (-not $release.isDraft) {
+            throw "The release must remain a draft until all updater assets are verified."
+          }
+
+          $assetNames = @($release.assets | ForEach-Object { $_.name })
+          if ($assetNames -notcontains "latest.json") {
+            throw "The draft release does not contain latest.json."
+          }
+          if (-not ($assetNames | Where-Object { $_ -match '\.exe$' })) {
+            throw "The draft release does not contain a Windows NSIS installer."
+          }
+          if (-not ($assetNames | Where-Object { $_ -match '\.exe\.sig$' })) {
+            throw "The draft release does not contain the installer .exe.sig signature."
+          }
+
+          $downloadRoot = Join-Path $env:RUNNER_TEMP "aiceland-release-$env:APP_VERSION"
+          New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
+          gh release download $env:RELEASE_TAG --pattern latest.json --dir $downloadRoot --clobber
+          $updater = Get-Content -Raw -LiteralPath (Join-Path $downloadRoot "latest.json") | ConvertFrom-Json
+          if ($updater.version -ne $env:APP_VERSION) {
+            throw "latest.json version '$($updater.version)' does not match '$env:APP_VERSION'."
+          }
+          $windows = $updater.platforms.'windows-x86_64'
+          if ($null -eq $windows -or [string]::IsNullOrWhiteSpace([string]$windows.signature)) {
+            throw "latest.json is missing the signed windows-x86_64 updater entry."
+          }
+          if ([string]$windows.url -notmatch '^https://github\.com/ErdonChen/AIsland/releases/download/') {
+            throw "latest.json contains an unexpected Windows updater URL."
+          }
+
+      - name: Publish the verified release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit $env:RELEASE_TAG --draft=false --latest

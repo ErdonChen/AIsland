@@ -1,0 +1,16 @@
+[
+  {
+    "name": "textAndEntities",
+    "payload": "<toast><visual><binding><text>Title &amp; status</text><text>First &lt;line&gt;</text><text>Second &#x2603;</text></binding></visual></toast>",
+    "title": "Title & status",
+    "body": "First <line>\nSecond ☃"
+  },
+  {
+    "name": "doctype",
+    "payload": "<!DOCTYPE toast [<!ENTITY unsafe 'expanded'>]><toast><text>&unsafe;</text></toast>"
+  },
+  {
+    "name": "customEntity",
+    "payload": "<toast><text>&custom;</text></toast>"
+  }
+]

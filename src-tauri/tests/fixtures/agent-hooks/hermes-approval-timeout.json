@@ -1,0 +1,7 @@
+{
+  "session_id": "hermes-approval-1",
+  "event_id": "hermes-native-9",
+  "extra": { "choice": "timeout" },
+  "message": "Approval expired",
+  "prompt": "not status data"
+}
