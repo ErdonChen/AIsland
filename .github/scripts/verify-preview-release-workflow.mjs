@@ -21,6 +21,9 @@ test("the unsigned preview workflow stays isolated from stable releases", async 
   assert.match(workflow, /Version mismatch:/);
   assert.match(workflow, /--bundles nsis/);
   assert.match(workflow, /createUpdaterArtifacts\?\":false|createUpdaterArtifacts\":false/);
+  assert.match(workflow, /Set-Content[^\n]+\$previewConfig[^\n]+utf8NoBOM/);
+  assert.match(workflow, /--config\s+\$previewConfig/);
+  assert.doesNotMatch(workflow, /--config\s+['"]\{/);
   assert.match(workflow, /SignatureStatus\]::NotSigned/);
   assert.match(workflow, /Expected exactly one NSIS installer/);
   assert.match(workflow, /Get-FileHash[^\n]+SHA256/);
