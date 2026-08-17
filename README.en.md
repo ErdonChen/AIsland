@@ -5,6 +5,7 @@
 <h1 align="center">AIsland</h1>
 
 <p align="center">
+  More than a Dynamic Island for Windows—an aircraft carrier for parallel AI agents<br>
   A simple, direct multi-agent monitor for Windows
 </p>
 
@@ -15,7 +16,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <img src="https://img.shields.io/badge/distribution-source%20only-orange.svg" alt="Source only">
+  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 ## Introduction
@@ -120,9 +121,20 @@ AIsland runs locally and reads supported agent session sources in read-only mode
 4. Select `Detect and configure Hooks`. Native agents use their native source automatically. Other agents show an available Hook or a pending compatibility state.
 5. Return to Home to view the status array and latest replies. Use the arrow to collapse the window or the minimize button to leave it running in the system tray.
 
+## Download the Windows preview
+
+Current version: [`preview-v0.1.0.1`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1)
+
+- [Download the Windows 11 x64 NSIS installer](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/AIceLand_0.1.0_x64-setup.exe)
+- [View SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/SHA256SUMS.txt)
+- SHA-256: `cf7de1cefc7b7a6f2e1a2d76e3a9896058ef75c7a87ca81a35a863e847b37b6c`
+
+> [!WARNING]
+> This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.
+
 ## Current distribution status
 
-AIsland may publish an unsigned Windows installer for technical testers, but only as a clearly labeled GitHub Pre-release. Its title and notes must say `Unsigned Preview`, include a SHA-256 checksum, never mark the release as `Latest`, and never publish `latest.json` or place the build on the stable updater channel.
+AIsland currently provides an unsigned Windows installer for technical testers, but only as a clearly labeled GitHub Pre-release. Its title and notes must say `Unsigned Preview`, include a SHA-256 checksum, never mark the release as `Latest`, and never publish `latest.json` or place the build on the stable updater channel.
 
 Stable releases for ordinary users, `Latest` releases, and portable executables still require a trusted Authenticode signature and must pass the signed-release gate. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust. See the [unsigned preview release guide](docs/unsigned-preview-release.md) and [Windows code-signing policy](docs/code-signing.md).
 

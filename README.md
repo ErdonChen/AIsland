@@ -5,6 +5,7 @@
 <h1 align="center">AIsland</h1>
 
 <p align="center">
+  不单只是 Windows 的灵动岛，更是多 Agent 并行的航空母舰<br>
   简单直观的 Windows 多 Agent 监控工具
 </p>
 
@@ -15,7 +16,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <img src="https://img.shields.io/badge/distribution-source%20only-orange.svg" alt="Source only">
+  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 ## 简介
@@ -120,9 +121,20 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 4. 点击 `一键检测并配置 Hook`。原生支持的 Agent 会自动使用原生源，其余 Agent 会显示可用的 Hook 或待适配状态。
 5. 回到主页查看状态阵列和最近回复。点击顶部箭头可以折叠窗口，最小化按钮会把程序收进系统托盘。
 
+## 下载 Windows 预览版
+
+当前版本：[`preview-v0.1.0.1`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1)
+
+- [下载 Windows 11 x64 NSIS 安装包](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/AIceLand_0.1.0_x64-setup.exe)
+- [查看 SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/SHA256SUMS.txt)
+- SHA-256：`cf7de1cefc7b7a6f2e1a2d76e3a9896058ef75c7a87ca81a35a863e847b37b6c`
+
+> [!WARNING]
+> 这是面向技术测试用户的未签名预览版。Windows SmartScreen 和 UAC 可能显示“未知发布者”。请只从 AIsland 官方 GitHub 仓库下载，并在运行前核对 SHA-256；不要关闭 Microsoft Defender 或 SmartScreen。
+
 ## 当前发布状态
 
-项目可以发布供技术测试用户使用的未签名 Windows 安装包，但只能作为明确标注的 GitHub Pre-release：发布标题和说明必须注明“未签名预览版”，附带 SHA-256，不得标记为 `Latest`，也不得发布 `latest.json` 或进入正式自动更新通道。
+项目当前为技术测试用户提供未签名 Windows 安装包，但只能作为明确标注的 GitHub Pre-release：发布标题和说明必须注明“未签名预览版”，附带 SHA-256，不得标记为 `Latest`，也不得发布 `latest.json` 或进入正式自动更新通道。
 
 面向普通用户的正式版、`Latest` 和便携 EXE 仍须取得受信任的 Authenticode 签名，并通过签名发布门禁。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。具体规则见[未签名预览版发布指南](docs/unsigned-preview-release.md)和[Windows 代码签名政策](docs/code-signing.md)。
 
