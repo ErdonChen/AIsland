@@ -275,10 +275,7 @@ fn migrated_app_data_script_identity(identity: &str) -> String {
             "\\com.aisland\\agent-hooks\\",
             "\\com.aisland.app\\agent-hooks\\",
         )
-        .replace(
-            "/com.aisland/agent-hooks/",
-            "/com.aisland.app/agent-hooks/",
-        )
+        .replace("/com.aisland/agent-hooks/", "/com.aisland.app/agent-hooks/")
 }
 
 fn managed_script_identity(command: &str) -> Option<&str> {

@@ -184,9 +184,8 @@ impl AgentIntegrationAssembly {
             app_data_dir: app_storage.to_path_buf(),
             wsl_home: "/home/aisland-test".into(),
             wsl_status_dir: "/mnt/c/aisland-test/agent-status".into(),
-            wsl_helper:
-                "/home/aisland-test/.local/share/aisland/agent-hooks/aisland-config-wsl.sh"
-                    .into(),
+            wsl_helper: "/home/aisland-test/.local/share/aisland/agent-hooks/aisland-config-wsl.sh"
+                .into(),
         }
     }
 
