@@ -16,7 +16,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <a href="https://github.com/ErdonChen/AIsland/releases"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.2"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 ## Introduction
@@ -123,7 +123,11 @@ AIsland runs locally and reads supported agent session sources in read-only mode
 
 ## Download the Windows preview
 
-The newly unified AIsland Windows installer is being built and verified by GitHub Actions. When it is published, download the installer and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/ErdonChen/AIsland/releases).
+Current version: [`preview-v0.1.0.2`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.2)
+
+- [Download the Windows 11 x64 NSIS installer](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.2/AIsland_0.1.0_x64-setup.exe)
+- [View SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.2/SHA256SUMS.txt)
+- SHA-256: `1f5c0f184b8e8f0e05acd144ece4e96e6333a41b33f5a41b2f679abae225ce6f`
 
 > [!WARNING]
 > This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.
