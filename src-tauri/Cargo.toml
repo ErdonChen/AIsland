@@ -44,7 +44,7 @@ uuid = { version = "1.24.0", features = ["v4", "serde"] }
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5.4.1"
 windows = { version = "=0.61.3", features = ["Data_Xml_Dom", "UI_Notifications", "Foundation", "Foundation_Collections", "Media_Control", "ApplicationModel_Activation", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Storage_EnhancedStorage", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_DataExchange", "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Performance", "Win32_System_ProcessStatus", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_System_Variant", "Win32_Security", "Win32_UI_Notifications", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem", "Win32_UI_WindowsAndMessaging"] }
-window-vibrancy = "0.6"
+window-vibrancy = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 webview2-com = "=0.38.2"
