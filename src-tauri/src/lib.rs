@@ -28,7 +28,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewWindow, WindowEvent};
 
 const WINDOW_LABEL: &str = "main";
-const AICELAND_GITHUB_URL: &str = "https://github.com/ErdonChen/AIsland";
+const AISLAND_GITHUB_URL: &str = "https://github.com/ErdonChen/AIsland";
 
 static WINDOW_STATE: OnceLock<Mutex<IslandWindowState>> = OnceLock::new();
 static STATE_TRANSITION: OnceLock<Mutex<()>> = OnceLock::new();
@@ -1153,7 +1153,7 @@ fn native_client_area_animations_enabled() -> bool {
         Ok(()) => Ok(enabled != 0),
         Err(error) => {
             log::warn!(
-                target: "aiceland::window",
+                target: "aisland::window",
                 "window_animation stage=accessibility_query status=fallback_reduced_motion error={error}"
             );
             Err(())
@@ -1410,7 +1410,7 @@ fn transition_tucked_state(app: &AppHandle, tucked: bool) -> Result<(), String> 
 }
 
 fn handle_geometry_failure(window: &WebviewWindow, mut message: String) {
-    log::error!(target: "aiceland::window", "{message}");
+    log::error!(target: "aisland::window", "{message}");
     set_last_rasterization_error(Some(message.clone()));
 
     let needs_show = match window.is_visible() {
@@ -1425,7 +1425,7 @@ fn handle_geometry_failure(window: &WebviewWindow, mut message: String) {
     if needs_show {
         if let Err(error) = show_borderless_window(window) {
             message.push_str(&format!("; recovery_show_error={error}; action=exit"));
-            log::error!(target: "aiceland::window", "{message}");
+            log::error!(target: "aisland::window", "{message}");
             set_last_rasterization_error(Some(message));
             window.app_handle().exit(1);
         }
@@ -1437,7 +1437,7 @@ fn schedule_pending_geometry_retry(window: WebviewWindow) {
         Ok(mut state) => state.start_worker_if_idle(),
         Err(_) => {
             log::error!(
-                target: "aiceland::window",
+                target: "aisland::window",
                 "window_geometry action=dpi_retry error=lock_poisoned"
             );
             false
@@ -1461,7 +1461,7 @@ fn schedule_pending_geometry_retry(window: WebviewWindow) {
                 DpiWorkerDecision::Retry(attempt) => attempt,
                 DpiWorkerDecision::Exit => {
                     log::warn!(
-                        target: "aiceland::window",
+                        target: "aisland::window",
                         "window_geometry action=dpi_retry exhausted=true"
                     );
                     return;
@@ -1574,7 +1574,7 @@ fn schedule_geometry_after_rasterization(window: WebviewWindow) {
 
         let prior_error = result.err();
         if let Some(error) = &prior_error {
-            log::warn!(target: "aiceland::window", "{error}");
+            log::warn!(target: "aisland::window", "{error}");
             set_last_rasterization_error(Some(error.clone()));
         } else {
             set_last_rasterization_error(None);
@@ -1582,7 +1582,7 @@ fn schedule_geometry_after_rasterization(window: WebviewWindow) {
         apply_current_geometry(&closure_window, prior_error);
     }) {
         let message = format!("rasterization stage=schedule error={error}");
-        log::error!(target: "aiceland::window", "{message}");
+        log::error!(target: "aisland::window", "{message}");
         set_last_rasterization_error(Some(message.clone()));
         apply_current_geometry(&fallback_window, Some(message));
     }
@@ -1646,7 +1646,7 @@ fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
             {
                 if let Err(error) = transition_tucked_state(window.app_handle(), true) {
                     log::error!(
-                        target: "aiceland::window",
+                        target: "aisland::window",
                         "window_geometry action=auto_tuck error={error}"
                     );
                 }
@@ -1658,7 +1658,7 @@ fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
                 },
             ) {
                 log::error!(
-                    target: "aiceland::window",
+                    target: "aisland::window",
                     "window_geometry action=remember_visible_placement error={error}"
                 );
             }
@@ -1842,8 +1842,8 @@ fn open_windows_target(_target: &std::ffi::OsStr) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_aiceland_github() -> Result<(), String> {
-    open_windows_target(std::ffi::OsStr::new(AICELAND_GITHUB_URL))
+fn open_aisland_github() -> Result<(), String> {
+    open_windows_target(std::ffi::OsStr::new(AISLAND_GITHUB_URL))
 }
 
 #[tauri::command]
@@ -1895,7 +1895,7 @@ fn toggle_main_window(app: &AppHandle) -> Result<(), String> {
 }
 
 fn log_lifecycle_error(action: &str, error: impl std::fmt::Display) {
-    log::error!(target: "aiceland::lifecycle", "action={action} error={error}");
+    log::error!(target: "aisland::lifecycle", "action={action} error={error}");
 }
 
 fn current_unix_millis() -> i64 {
@@ -1917,7 +1917,7 @@ macro_rules! registered_handler_from_all_boundaries {
     ) => {
         tauri::generate_handler![
             set_ui_language,
-            open_aiceland_github,
+            open_aisland_github,
             open_project_readme,
             set_island_mode,
             set_island_scale,
@@ -2021,7 +2021,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(logging::plugin())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            log::info!(target: "aiceland::lifecycle", "event=second_instance action=show_main_window");
+            log::info!(target: "aisland::lifecycle", "event=second_instance action=show_main_window");
             if let Err(error) = show_main_window(app) {
                 log_lifecycle_error("single_instance_show", error);
             }
@@ -2041,7 +2041,7 @@ pub fn run() {
                 .app_log_dir()
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
             log::info!(
-                target: "aiceland::lifecycle",
+                target: "aisland::lifecycle",
                 "event=startup version={} log_dir={}",
                 app.package_info().version,
                 log_dir.display()
@@ -2049,7 +2049,7 @@ pub fn run() {
 
             let services = AppServices::new(app.handle()).map_err(|error| {
                 log::error!(
-                    target: "aiceland::startup",
+                    target: "aisland::startup",
                     "stage=services status=failed error={}",
                     error.message_key
                 );
@@ -2065,7 +2065,7 @@ pub fn run() {
             );
             if let Err(error) = product_settings.reconcile_startup(current_unix_millis()) {
                 log::warn!(
-                    target: "aiceland::autostart",
+                    target: "aisland::autostart",
                     "stage=startup_reconcile status=degraded error={}",
                     error.message_key
                 );
@@ -2076,19 +2076,19 @@ pub fn run() {
             app.manage(services.clone());
             app.manage(product_settings);
             app.manage(app_updates);
-            log::info!(target: "aiceland::startup", "stage=services status=ready");
+            log::info!(target: "aisland::startup", "stage=services status=ready");
             let restored_profiles = services
                 .restore_agent_profiles_once()
                 .map_err(|error| {
                     log::error!(
-                        target: "aiceland::startup",
+                        target: "aisland::startup",
                         "stage=agent_profiles status=failed error={}",
                         error.message_key
                     );
                     std::io::Error::other(error.message_key)
                 })?;
             log::info!(
-                target: "aiceland::startup",
+                target: "aisland::startup",
                 "stage=agent_profiles status=ready restored={restored_profiles}"
             );
             #[cfg(windows)]
@@ -2096,7 +2096,7 @@ pub fn run() {
                 .start_optional_modules_once(app.handle().clone())
                 .map_err(|error| {
                     log::error!(
-                        target: "aiceland::startup",
+                        target: "aisland::startup",
                         "stage=optional_modules status=failed error={}",
                         error.message_key
                     );
@@ -2104,7 +2104,7 @@ pub fn run() {
                 })?;
             #[cfg(windows)]
             log::info!(
-                target: "aiceland::startup",
+                target: "aisland::startup",
                 "stage=optional_modules status=ready"
             );
             #[cfg(windows)]
@@ -2112,7 +2112,7 @@ pub fn run() {
                 .start_notification_history_worker_once(app.handle().clone())
                 .map_err(|error| {
                     log::error!(
-                        target: "aiceland::startup",
+                        target: "aisland::startup",
                         "stage=notification_history_worker status=failed error={}",
                         error.message_key
                     );
@@ -2120,35 +2120,35 @@ pub fn run() {
                 })?;
             #[cfg(windows)]
             log::info!(
-                target: "aiceland::startup",
+                target: "aisland::startup",
                 "stage=notification_history_worker status=ready"
             );
             services
                 .start_reminder_worker_once()
                 .map_err(|error| {
                     log::error!(
-                        target: "aiceland::startup",
+                        target: "aisland::startup",
                         "stage=reminder_worker status=failed error={}",
                         error.message_key
                     );
                     std::io::Error::other(error.message_key)
                 })?;
             log::info!(
-                target: "aiceland::startup",
+                target: "aisland::startup",
                 "stage=reminder_worker status=ready"
             );
             services
                 .start_reminder_channel_worker_once()
                 .map_err(|error| {
                     log::error!(
-                        target: "aiceland::startup",
+                        target: "aisland::startup",
                         "stage=reminder_channel_worker status=failed error={}",
                         error.message_key
                     );
                     std::io::Error::other(error.message_key)
                 })?;
             log::info!(
-                target: "aiceland::startup",
+                target: "aisland::startup",
                 "stage=reminder_channel_worker status=ready"
             );
             let status_dir = app
@@ -2160,14 +2160,14 @@ pub fn run() {
                 .start_agent_status_watcher_once(status_dir.clone())
                 .map_err(|error| {
                     log::error!(
-                        target: "aiceland::startup",
+                        target: "aisland::startup",
                         "stage=agent_status_watcher status=failed error={}",
                         error.message_key
                     );
                     std::io::Error::other(error.message_key)
                 })?;
             log::info!(
-                target: "aiceland::startup",
+                target: "aisland::startup",
                 "stage=agent_status_watcher status=ready directory={}",
                 status_dir.display()
             );
@@ -2184,13 +2184,13 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        log::info!(target: "aiceland::lifecycle", "source=tray action=toggle");
+                        log::info!(target: "aisland::lifecycle", "source=tray action=toggle");
                         if let Err(error) = toggle_main_window(app) {
                             log_lifecycle_error("tray_menu_toggle", error);
                         }
                     }
                     "settings" => {
-                        log::info!(target: "aiceland::lifecycle", "source=tray action=open_settings");
+                        log::info!(target: "aisland::lifecycle", "source=tray action=open_settings");
                         TRAY_NAVIGATION_STATE.request();
                         if let Err(error) = show_main_window(app) {
                             log_lifecycle_error("tray_settings_show", error);
@@ -2200,7 +2200,7 @@ pub fn run() {
                         }
                     }
                     "quit" => {
-                        log::info!(target: "aiceland::lifecycle", "source=tray action=quit");
+                        log::info!(target: "aisland::lifecycle", "source=tray action=quit");
                         app.exit(0);
                     }
                     _ => {}
@@ -2212,7 +2212,7 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        log::info!(target: "aiceland::lifecycle", "source=tray_icon action=toggle");
+                        log::info!(target: "aisland::lifecycle", "source=tray_icon action=toggle");
                         if let Err(error) = toggle_main_window(tray.app_handle()) {
                             log_lifecycle_error("tray_left_toggle", error);
                         }
@@ -2227,7 +2227,7 @@ pub fn run() {
                         .and_then(|state| apply_current_window_region(&window, &state))
                     {
                         log::warn!(
-                            target: "aiceland::window",
+                            target: "aisland::window",
                             "window_effect effect=rounded_region status=failed error={error}"
                         );
                     }
@@ -2235,7 +2235,7 @@ pub fn run() {
                         apply_island_glass_transparency(&window, DEFAULT_GLASS_TRANSPARENCY)
                     {
                         log::warn!(
-                            target: "aiceland::window",
+                            target: "aisland::window",
                             "window_effect effect=acrylic status=failed error={error}"
                         );
                     }
@@ -2244,25 +2244,25 @@ pub fn run() {
                 schedule_geometry_after_rasterization(window);
             } else {
                 log::warn!(
-                    target: "aiceland::startup",
+                    target: "aisland::startup",
                     "stage=main_window status=missing"
                 );
             }
-            log::info!(target: "aiceland::lifecycle", "event=startup status=ready");
+            log::info!(target: "aisland::lifecycle", "event=startup status=ready");
             Ok(())
         })
         .on_window_event(handle_window_event)
         .build(tauri::generate_context!())
-        .expect("error while building AIceLand")
+        .expect("error while building AIsland")
         .run(|app_handle, event| {
             if let tauri::RunEvent::Exit = event {
-                log::info!(target: "aiceland::lifecycle", "event=shutdown status=started");
+                log::info!(target: "aisland::lifecycle", "event=shutdown status=started");
                 let mut actions = TauriApplicationLifecycleActions {
                     app: app_handle,
                     window: None,
                 };
                 handle_application_lifecycle_event(ApplicationLifecycleEvent::Exit, &mut actions);
-                log::info!(target: "aiceland::lifecycle", "event=shutdown status=completed");
+                log::info!(target: "aisland::lifecycle", "event=shutdown status=completed");
                 logging::flush();
             }
         });

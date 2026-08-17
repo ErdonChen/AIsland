@@ -601,7 +601,13 @@ pub struct NotificationHistoryItem {
     pub received_at: UnixMillis,
     pub read_at: Option<UnixMillis>,
 }
-boundary_enum!(NotificationOrigin { Windows, Aiceland });
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationOrigin {
+    Windows,
+    #[serde(rename = "aisland")]
+    AIsland,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ModulePreference {
@@ -1123,11 +1129,14 @@ pub struct SaveMonitorThresholdInput {
     pub id: Option<EntityId>,
     pub expected_revision: Option<Revision>,
 }
-boundary_enum!(NotificationOriginFilter {
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationOriginFilter {
     All,
     Windows,
-    Aiceland
-});
+    #[serde(rename = "aisland")]
+    AIsland,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ListNotificationHistoryInput {

@@ -59,7 +59,7 @@ CREATE TABLE threshold_breaches (
 
 CREATE TABLE notification_history (
     id TEXT PRIMARY KEY,
-    origin TEXT NOT NULL CHECK (origin IN ('windows','aiceland')),
+    origin TEXT NOT NULL CHECK (origin IN ('windows','aisland')),
     app_id TEXT NOT NULL,
     source_entity_id TEXT NOT NULL,
     source_row_id INTEGER,
@@ -76,7 +76,7 @@ CREATE TABLE notification_history (
     CHECK (
       (origin = 'windows' AND title IS NOT NULL AND body IS NOT NULL AND message_key IS NULL)
       OR
-      (origin = 'aiceland' AND title IS NULL AND body IS NULL AND message_key IS NOT NULL
+      (origin = 'aisland' AND title IS NULL AND body IS NULL AND message_key IS NOT NULL
        AND message_parameters_json IS NOT NULL AND source_context_json IS NOT NULL)
     )
 );

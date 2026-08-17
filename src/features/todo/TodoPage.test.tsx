@@ -107,7 +107,7 @@ function commandError(code: CommandError["code"], messageKey: string): CommandEr
 }
 
 async function renderTodoPage(options: { initialStatus?: "open" | "completed" | "all"; language?: "zh-CN" | "en-US" } = {}) {
-  localStorage.setItem("aiceland.ui.language", options.language ?? "en-US");
+  localStorage.setItem("aisland.ui.language", options.language ?? "en-US");
   const user = userEvent.setup();
   render(
     <I18nProvider>

@@ -84,7 +84,7 @@ pub fn updateNote(
 
 fn log_note_command_failure(command: &str, error: &CommandError) {
     log::warn!(
-        target: "aiceland::notes",
+        target: "aisland::notes",
         "event=command_failed command={command} code={:?} message_key={}",
         error.code,
         error.message_key

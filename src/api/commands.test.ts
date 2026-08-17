@@ -391,7 +391,7 @@ describe("monitor and notification command bridge", () => {
   it("uses all thirteen locked names and flat camelCase payloads", async () => {
     invokeMock.mockResolvedValue({});
     const commands = await import(/* @vite-ignore */ commandsModulePath);
-    const watch = { id: null, processName: "aiceland.exe", enabled: true, expectedRevision: null };
+    const watch = { id: null, processName: "aisland.exe", enabled: true, expectedRevision: null };
     const threshold = {
       id: null,
       metric: "cpuPercent" as const,

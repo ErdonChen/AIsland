@@ -16,7 +16,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+  <a href="https://github.com/ErdonChen/AIsland/releases"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 ## Introduction
@@ -123,11 +123,7 @@ AIsland runs locally and reads supported agent session sources in read-only mode
 
 ## Download the Windows preview
 
-Current version: [`preview-v0.1.0.1`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1)
-
-- [Download the Windows 11 x64 NSIS installer](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/AIceLand_0.1.0_x64-setup.exe)
-- [View SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/SHA256SUMS.txt)
-- SHA-256: `cf7de1cefc7b7a6f2e1a2d76e3a9896058ef75c7a87ca81a35a863e847b37b6c`
+The newly unified AIsland Windows installer is being built and verified by GitHub Actions. When it is published, download the installer and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/ErdonChen/AIsland/releases).
 
 > [!WARNING]
 > This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.
@@ -179,4 +175,4 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 
 This repository is the Apache-2.0 Community Edition. Future paid Pro capabilities may be maintained separately under different terms. Already published Community code keeps its license, and security fixes plus major compatibility fixes for existing Community features remain free.
 
-The public product name is AIsland. The internal identifiers `AIceLand` and `com.aiceland.app` remain stable to preserve installation upgrades, data directories, and the signed update chain.
+The public name, installer name, and internal product name are all AIsland. The application identifier is `com.aisland.app`.

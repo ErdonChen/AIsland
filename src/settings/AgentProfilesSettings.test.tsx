@@ -350,7 +350,7 @@ test("keeps WSL Custom Hooks read-only until the controlled adapter is available
   const user = userEvent.setup();
   listProfilesMock.mockResolvedValue([{
     id: "custom-wsl", kind: "custom", displayName: "WSL hook", environment: "wsl",
-    configTarget: { kind: "customHook", executable: "/opt/aiceland/hook", argv: [], workingDirectory: null, timeoutSeconds: 30 },
+    configTarget: { kind: "customHook", executable: "/opt/aisland/hook", argv: [], workingDirectory: null, timeoutSeconds: 30 },
     eventMapping: [{ nativeEvent: "completed", normalizedStatus: "completed" }], enabled: true,
     installationState: "unsupported", reasonCode: "profileWslNotSupported", revision: 1, updatedAt: 1,
   }]);

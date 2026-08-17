@@ -296,7 +296,7 @@ test("opens About AIsland with GitHub and local README actions", async () => {
   expect(screen.getByText("https://github.com/ErdonChen/AIsland")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "打开 GitHub" }));
-  expect(invokeMock).toHaveBeenCalledWith("open_aiceland_github");
+  expect(invokeMock).toHaveBeenCalledWith("open_aisland_github");
 
   await user.click(screen.getByRole("button", { name: "使用说明" }));
   expect(invokeMock).toHaveBeenCalledWith("open_project_readme");

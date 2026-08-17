@@ -126,6 +126,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify AIsland brand naming
+        run: node .github/scripts/verify-brand-name.mjs
+
       - name: Verify the release workflow contract
         run: node --test .github/scripts/verify-release-workflow.mjs
 
@@ -162,6 +165,10 @@ jobs:
           if ($installers.Count -eq 0) {
             throw "No Windows NSIS installer was produced for Authenticode verification."
           }
+          $expectedInstallerName = "AIsland_$($env:APP_VERSION)_x64-setup.exe"
+          if ($installers.Name -notcontains $expectedInstallerName) {
+            throw "The build did not produce the expected installer '$expectedInstallerName'."
+          }
           foreach ($installer in $installers) {
             $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
             if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
@@ -189,14 +196,15 @@ jobs:
           if ($assetNames -notcontains "latest.json") {
             throw "The draft release does not contain latest.json."
           }
-          if (-not ($assetNames | Where-Object { $_ -match '\.exe$' })) {
-            throw "The draft release does not contain a Windows NSIS installer."
+          $expectedInstallerName = "AIsland_$($env:APP_VERSION)_x64-setup.exe"
+          if ($assetNames -notcontains $expectedInstallerName) {
+            throw "The draft release does not contain '$expectedInstallerName'."
           }
-          if (-not ($assetNames | Where-Object { $_ -match '\.exe\.sig$' })) {
-            throw "The draft release does not contain the installer .exe.sig signature."
+          if ($assetNames -notcontains "$expectedInstallerName.sig") {
+            throw "The draft release does not contain '$expectedInstallerName.sig'."
           }
 
-          $downloadRoot = Join-Path $env:RUNNER_TEMP "aiceland-release-$env:APP_VERSION"
+          $downloadRoot = Join-Path $env:RUNNER_TEMP "aisland-release-$env:APP_VERSION"
           New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
           gh release download $env:RELEASE_TAG --pattern latest.json --dir $downloadRoot --clobber
           $updater = Get-Content -Raw -LiteralPath (Join-Path $downloadRoot "latest.json") | ConvertFrom-Json

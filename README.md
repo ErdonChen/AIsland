@@ -16,7 +16,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+  <a href="https://github.com/ErdonChen/AIsland/releases"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 ## 简介
@@ -123,11 +123,7 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 
 ## 下载 Windows 预览版
 
-当前版本：[`preview-v0.1.0.1`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.1)
-
-- [下载 Windows 11 x64 NSIS 安装包](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/AIceLand_0.1.0_x64-setup.exe)
-- [查看 SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.1/SHA256SUMS.txt)
-- SHA-256：`cf7de1cefc7b7a6f2e1a2d76e3a9896058ef75c7a87ca81a35a863e847b37b6c`
+统一命名为 AIsland 的新版 Windows 安装包正在通过 GitHub Actions 构建和验证。发布后请从 [GitHub Releases](https://github.com/ErdonChen/AIsland/releases) 下载安装包和 `SHA256SUMS.txt`。
 
 > [!WARNING]
 > 这是面向技术测试用户的未签名预览版。Windows SmartScreen 和 UAC 可能显示“未知发布者”。请只从 AIsland 官方 GitHub 仓库下载，并在运行前核对 SHA-256；不要关闭 Microsoft Defender 或 SmartScreen。
@@ -179,4 +175,4 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 
 本仓库是 Apache-2.0 许可的 Community Edition。未来可能推出独立维护、单独许可的付费 Pro 功能；已经发布的 Community 代码不会因此改变许可，现有 Community 功能的安全修复和重大兼容性修复仍保持免费。
 
-应用对外名称为 AIsland。为保持安装升级、数据目录和签名更新链兼容，内部稳定身份继续使用 `AIceLand` 和 `com.aiceland.app`。
+应用对外名称、安装器名称和内部名称统一使用 AIsland，应用标识为 `com.aisland.app`。

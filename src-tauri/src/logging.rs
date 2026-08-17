@@ -14,11 +14,11 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
         .targets([
             Target::new(TargetKind::Stdout),
             Target::new(TargetKind::LogDir {
-                file_name: Some("aiceland".to_string()),
+                file_name: Some("aisland".to_string()),
             }),
         ])
         .level(log::LevelFilter::Warn)
-        .level_for("aiceland", log::LevelFilter::Info)
+        .level_for("aisland", log::LevelFilter::Info)
         .max_file_size(MAX_LOG_FILE_BYTES)
         .rotation_strategy(RotationStrategy::KeepSome(RETAINED_LOG_FILES))
         .timezone_strategy(TimezoneStrategy::UseLocal)
@@ -40,7 +40,7 @@ pub fn install_panic_hook() {
         let location = panic_info
             .location()
             .map(|location| (location.file(), location.line(), location.column()));
-        log::error!(target: "aiceland::panic", "{}", format_panic_marker(location));
+        log::error!(target: "aisland::panic", "{}", format_panic_marker(location));
         flush();
     }));
 }
@@ -62,7 +62,7 @@ pub fn flush() {
 mod tests {
     use super::*;
 
-    const PANIC_CHILD_SECRET_ENV: &str = "AICELAND_PANIC_HOOK_TEST_SECRET";
+    const PANIC_CHILD_SECRET_ENV: &str = "AISLAND_PANIC_HOOK_TEST_SECRET";
 
     #[test]
     fn retention_budget_is_bounded() {

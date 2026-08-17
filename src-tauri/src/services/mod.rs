@@ -140,21 +140,21 @@ impl AgentIntegrationAssembly {
             .iter()
             .find_map(|entry| match &entry.destination {
                 agent_hook_assets::HookAssetDestination::Wsl(destination) => destination
-                    .rsplit_once("/.local/share/aiceland/agent-hooks/")
+                    .rsplit_once("/.local/share/aisland/agent-hooks/")
                     .map(|(home, _)| home.to_owned()),
                 agent_hook_assets::HookAssetDestination::Windows(_) => None,
             })
-            .unwrap_or_else(|| "/aiceland-wsl-unavailable".into());
+            .unwrap_or_else(|| "/aisland-wsl-unavailable".into());
         if !wsl_home.starts_with('/') || wsl_home.contains('\0') || wsl_home.contains('\n') {
             return Err(storage_error());
         }
         let wsl_helper = format!(
-            "{}/.local/share/aiceland/agent-hooks/aiceland-config-wsl.sh",
+            "{}/.local/share/aisland/agent-hooks/aisland-config-wsl.sh",
             wsl_home.trim_end_matches('/')
         );
         let wsl_status_dir = match (&installed.wsl_status_dir, installed.wsl_available) {
             (Some(status_dir), true) => status_dir.clone(),
-            (None, false) => "/aiceland-wsl-unavailable/agent-status".into(),
+            (None, false) => "/aisland-wsl-unavailable/agent-status".into(),
             _ => return Err(storage_error()),
         };
         if !wsl_status_dir.starts_with('/')
@@ -182,11 +182,10 @@ impl AgentIntegrationAssembly {
             windows_home: app_storage.join("test-home"),
             app_data_root,
             app_data_dir: app_storage.to_path_buf(),
-            wsl_home: "/home/aiceland-test".into(),
-            wsl_status_dir: "/mnt/c/aiceland-test/agent-status".into(),
-            wsl_helper:
-                "/home/aiceland-test/.local/share/aiceland/agent-hooks/aiceland-config-wsl.sh"
-                    .into(),
+            wsl_home: "/home/aisland-test".into(),
+            wsl_status_dir: "/mnt/c/aisland-test/agent-status".into(),
+            wsl_helper: "/home/aisland-test/.local/share/aisland/agent-hooks/aisland-config-wsl.sh"
+                .into(),
         }
     }
 
@@ -2012,7 +2011,7 @@ mod tests {
     fn app_services_integration_assembly_uses_the_exact_tauri_app_data_directory() {
         let directory = tempfile::tempdir().unwrap();
         let app_data_root = directory.path().join("APPDATA");
-        let app_storage = app_data_root.join("com.aiceland.app");
+        let app_storage = app_data_root.join("com.aisland.app");
         let services = AppServices::from_parts(
             Arc::new(Storage::open(&app_storage).unwrap()),
             Arc::new(BootstrapModuleStateProvider),
@@ -2045,7 +2044,7 @@ mod tests {
             "expected {} in {hook_command}",
             expected_status.display()
         );
-        assert!(!hook_command.contains("com.aiceland.app\\com.aiceland"));
+        assert!(!hook_command.contains("com.aisland.app\\com.aisland"));
     }
 
     #[test]
@@ -2053,18 +2052,18 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let windows_home = directory.path().join("Users/Ada");
         let app_data_root = directory.path().join("AppData/Roaming");
-        let app_data_dir = app_data_root.join("com.aiceland.app");
+        let app_data_dir = app_data_root.join("com.aisland.app");
         let installed = agent_hook_assets::HookAssetPaths {
             paths: vec![agent_hook_assets::HookAssetPath {
                 agent_id: AgentId::Codex,
                 environment: AgentEnvironment::Wsl,
                 destination: agent_hook_assets::HookAssetDestination::Wsl(
-                    "/srv/ada/.local/share/aiceland/agent-hooks/codex-wsl.sh".into(),
+                    "/srv/ada/.local/share/aisland/agent-hooks/codex-wsl.sh".into(),
                 ),
             }],
             wsl_available: true,
             wsl_status_dir: Some(
-                "/mnt/c/Users/Ada/AppData/Roaming/com.aiceland.app/agent-status".into(),
+                "/mnt/c/Users/Ada/AppData/Roaming/com.aisland.app/agent-status".into(),
             ),
         };
         let assembly = AgentIntegrationAssembly::from_installed(
@@ -2136,7 +2135,7 @@ mod tests {
             vec![
                 "--exec",
                 "sh",
-                "/srv/ada/.local/share/aiceland/agent-hooks/aiceland-config-wsl.sh",
+                "/srv/ada/.local/share/aisland/agent-hooks/aisland-config-wsl.sh",
                 "read",
                 "/srv/ada/.codex/hooks.json",
             ]
@@ -2149,12 +2148,12 @@ mod tests {
             .owned_hooks
             .iter()
             .all(|hook| hook.command.contains(
-                "/mnt/c/Users/Ada/AppData/Roaming/com.aiceland.app/agent-status/codex-wsl.json"
+                "/mnt/c/Users/Ada/AppData/Roaming/com.aisland.app/agent-status/codex-wsl.json"
             )));
         assert!(wsl_codex
             .owned_hooks
             .iter()
-            .all(|hook| !hook.command.contains(".local/share/aiceland/agent-status")));
+            .all(|hook| !hook.command.contains(".local/share/aisland/agent-status")));
     }
 
     fn activation_delivery(services: &AppServices) -> crate::contracts::ReminderDelivery {

@@ -38,7 +38,7 @@ const deferred = <T,>() => {
 };
 
 async function renderNotes(date = "2026-08-08", autosaveDelayMs = 600) {
-  localStorage.setItem("aiceland.ui.language", "en-US");
+  localStorage.setItem("aisland.ui.language", "en-US");
   mocks.invoke.mockResolvedValue(undefined);
   render(<I18nProvider><DailyNotesPage initialDate={date} autosaveDelayMs={autosaveDelayMs} /></I18nProvider>);
   await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
@@ -57,7 +57,7 @@ beforeEach(() => {
   mocks.createNote.mockReset().mockImplementation(async (input) => noteFixture({ id: "created-note", bodyMarkdown: input.bodyMarkdown, noteDate: input.noteDate, revision: 1 }));
   mocks.updateNote.mockReset().mockImplementation(async (input) => noteFixture({ bodyMarkdown: input.bodyMarkdown, noteDate: input.noteDate, revision: input.expectedRevision + 1 }));
   mocks.deleteNote.mockReset().mockResolvedValue({ id: "note-1", deleted: true });
-  mocks.exportNoteMarkdown.mockReset().mockResolvedValue({ id: "note-1", path: "C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md", bytesWritten: 3 });
+  mocks.exportNoteMarkdown.mockReset().mockResolvedValue({ id: "note-1", path: "C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md", bytesWritten: 3 });
   mocks.openNoteDirectory.mockReset().mockResolvedValue(undefined);
   mocks.invoke.mockReset();
   mocks.clipboardWrite.mockReset().mockResolvedValue(undefined);
@@ -73,7 +73,7 @@ afterEach(() => {
 
 describe("daily note lifecycle and autosave", () => {
   it("uses the authoritative Notes placeholders, states, actions, and no uncatalogued kicker", async () => {
-    localStorage.setItem("aiceland.ui.language", "en-US");
+    localStorage.setItem("aisland.ui.language", "en-US");
     render(<I18nProvider><DailyNotesPage initialDate="2026-08-08" /></I18nProvider>);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 
@@ -103,7 +103,7 @@ describe("daily note lifecycle and autosave", () => {
   it("waits for the current daily-note identity before accepting an autosaved draft", async () => {
     const initialLoad = deferred<NoteDocument | null>();
     mocks.getDailyNote.mockReturnValue(initialLoad.promise);
-    localStorage.setItem("aiceland.ui.language", "en-US");
+    localStorage.setItem("aisland.ui.language", "en-US");
     render(<I18nProvider><DailyNotesPage initialDate="2026-08-08" /></I18nProvider>);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     const editor = screen.getByLabelText("Daily Notes");
@@ -422,11 +422,11 @@ describe("daily note search and explicit actions", () => {
     expect(mocks.getNote).not.toHaveBeenCalledWith({ id: "note-2" });
 
     await act(async () => {
-      exported.resolve({ id: "note-1", path: "C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md", bytesWritten: 3 });
+      exported.resolve({ id: "note-1", path: "C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md", bytesWritten: 3 });
       await exported.promise;
     });
 
-    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md")).toBeVisible();
+    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md")).toBeVisible();
     expect(screen.getByRole("button", { name: /Other note/ })).toBeEnabled();
   });
 
@@ -456,7 +456,7 @@ describe("daily note search and explicit actions", () => {
     });
 
     await waitFor(() => expect(mocks.exportNoteMarkdown).toHaveBeenCalledWith({ id: "note-1", directory: "", expectedRevision: 4 }));
-    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md")).toBeVisible();
+    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md")).toBeVisible();
     expect(result).toBeEnabled();
     expect(editor).toBeEnabled();
   });
@@ -488,7 +488,7 @@ describe("daily note search and explicit actions", () => {
     await user.click(screen.getByRole("button", { name: "Export Markdown" }));
     await waitFor(() => expect(mocks.getNote).toHaveBeenCalledWith({ id: "note-1" }));
 
-    expect(screen.getByText("C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md")).toBeVisible();
+    expect(screen.getByText("C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md")).toBeVisible();
 
     await act(async () => {
       refreshed.resolve(noteFixture({ revision: 4 }));
@@ -502,7 +502,7 @@ describe("daily note search and explicit actions", () => {
     mocks.updateNote.mockRejectedValueOnce(commandError("conflict"));
     const { editor, user } = await renderNotes();
     await user.click(screen.getByRole("button", { name: "Export Markdown" }));
-    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md")).toBeVisible();
+    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md")).toBeVisible();
     expect(editor).toBeEnabled();
     fireEvent.change(editor, { target: { value: "newer local draft" } });
 
@@ -524,7 +524,7 @@ describe("daily note search and explicit actions", () => {
     const { editor, user } = await renderNotes();
     await user.click(screen.getByRole("button", { name: "Export Markdown" }));
 
-    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md")).toBeVisible();
+    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md")).toBeVisible();
     expect(screen.getByRole("alert")).toHaveTextContent("Database operation failed");
 
     fireEvent.change(editor, { target: { value: "safe local draft" } });
@@ -539,7 +539,7 @@ describe("daily note search and explicit actions", () => {
     await user.click(screen.getByRole("button", { name: "Export Markdown" }));
     expect(mocks.exportNoteMarkdown).toHaveBeenCalledWith({ id: "note-1", directory: "", expectedRevision: 3 });
     expect(await screen.findByText("Exported")).toBeVisible();
-    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIceLand\\2026-08-08.md")).toBeVisible();
+    expect(await screen.findByText("C:\\Users\\Me\\Documents\\AIsland\\2026-08-08.md")).toBeVisible();
     expect(mocks.getNote).toHaveBeenCalledWith({ id: "note-1" });
     await user.clear(screen.getByLabelText("Daily Notes"));
     await user.type(screen.getByLabelText("Daily Notes"), "after export");

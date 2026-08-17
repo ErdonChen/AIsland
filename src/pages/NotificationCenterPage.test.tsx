@@ -41,10 +41,10 @@ const windowsItem = (overrides: Partial<NotificationHistoryItem> = {}): Notifica
   ...overrides,
 });
 
-const aicelandItem = (overrides: Partial<NotificationHistoryItem> = {}): NotificationHistoryItem => ({
-  id: "aiceland-1",
-  origin: "aiceland",
-  appId: "AIceLand",
+const aislandItem = (overrides: Partial<NotificationHistoryItem> = {}): NotificationHistoryItem => ({
+  id: "aisland-1",
+  origin: "aisland",
+  appId: "AIsland",
   sourceEntityId: "todo-1",
   title: "",
   body: "",
@@ -84,7 +84,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  rows = [windowsItem(), aicelandItem()];
+  rows = [windowsItem(), aislandItem()];
   deliverSnapshot = undefined;
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.invoke.mockResolvedValue(undefined);
@@ -123,12 +123,12 @@ test("starts the authoritative subscription with all filters and renders newest 
   );
   expect(await screen.findByRole("heading", { name: "通知中心" })).toBeVisible();
   const cards = screen.getAllByRole("listitem");
-  expect(cards.map((card) => card.getAttribute("data-notification-id"))).toEqual(["aiceland-1", "windows-1"]);
+  expect(cards.map((card) => card.getAttribute("data-notification-id"))).toEqual(["aisland-1", "windows-1"]);
   expect(screen.getByText("待办到期：Ship build")).toBeVisible();
   expect(screen.getByText("C:\\Build\\release")).toBeVisible();
   expect(screen.getByText("\\\\server\\share\\artifact")).toBeVisible();
   expect(screen.getByRole("option", { name: "Microsoft.WindowsStore" })).toBeInTheDocument();
-  expect(screen.getByRole("option", { name: "AIceLand" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "AIsland" })).toBeInTheDocument();
 });
 
 test("keeps every notification card at content height while the list owns scrolling", async () => {
@@ -164,8 +164,8 @@ test("recreates the subscription with the combined origin source and unread filt
   expect(mocks.dispose.mock.calls.length).toBeGreaterThanOrEqual(3);
 });
 
-test("keeps Windows text raw while locale changes reproject AIceLand messages without resetting filters", async () => {
-  rows = [windowsItem(), aicelandItem({ readAt: null })];
+test("keeps Windows text raw while locale changes reproject AIsland messages without resetting filters", async () => {
+  rows = [windowsItem(), aislandItem({ readAt: null })];
   const { user } = renderPage();
   await screen.findByText("待办到期：Ship build");
   await user.click(screen.getByRole("checkbox", { name: "仅未读" }));
@@ -197,12 +197,12 @@ test("does not let an older snapshot revert a confirmed read or resurrect a conf
 
   await user.click(within(card).getByRole("button", { name: "标为已读" }));
   await waitFor(() => expect(within(card).getByRole("button", { name: "标为未读" })).toBeEnabled());
-  await act(async () => deliverSnapshot?.([windowsItem(), aicelandItem()]));
+  await act(async () => deliverSnapshot?.([windowsItem(), aislandItem()]));
   expect(within(card).getByRole("button", { name: "标为未读" })).toBeEnabled();
 
   await user.click(within(card).getByRole("button", { name: "删除此条" }));
   await waitFor(() => expect(screen.queryByTestId("notification-windows-1")).not.toBeInTheDocument());
-  await act(async () => deliverSnapshot?.([windowsItem(), aicelandItem()]));
+  await act(async () => deliverSnapshot?.([windowsItem(), aislandItem()]));
   expect(screen.queryByTestId("notification-windows-1")).not.toBeInTheDocument();
 });
 
@@ -231,7 +231,7 @@ test("uses the exact delete confirmation and literal payload without optimistic 
   const card = await screen.findByTestId("notification-windows-1");
 
   await user.click(within(card).getByRole("button", { name: "删除此条" }));
-  expect(mocks.confirm).toHaveBeenCalledWith("仅从 AIceLand 通知中心移除此条记录？Windows 原通知不会被修改。");
+  expect(mocks.confirm).toHaveBeenCalledWith("仅从 AIsland 通知中心移除此条记录？Windows 原通知不会被修改。");
   expect(mocks.deleteHistory).toHaveBeenCalledWith({ id: "windows-1", confirmRemoval: true });
   expect(card).toBeInTheDocument();
   result.resolve({ id: "windows-1", deleted: true });
@@ -245,16 +245,16 @@ test("clears only after exact confirmation and retains all rows when the command
   await screen.findByTestId("notification-windows-1");
 
   await user.click(screen.getByRole("button", { name: "清空记录" }));
-  expect(mocks.confirm).toHaveBeenCalledWith("仅清空 AIceLand 保存的通知记录？Windows 原通知和提醒历史不会被删除。");
+  expect(mocks.confirm).toHaveBeenCalledWith("仅清空 AIsland 保存的通知记录？Windows 原通知和提醒历史不会被删除。");
   expect(mocks.clearHistory).toHaveBeenCalledWith({ before: 3_500, confirmRemoval: true });
   expect(screen.getByTestId("notification-windows-1")).toBeInTheDocument();
-  expect(screen.getByTestId("notification-aiceland-1")).toBeInTheDocument();
+  expect(screen.getByTestId("notification-aisland-1")).toBeInTheDocument();
   expect(screen.getByRole("alert")).toBeVisible();
 });
 
-test("keeps AIceLand rows and the warning visible until Retry reports an active listener", async () => {
+test("keeps AIsland rows and the warning visible until Retry reports an active listener", async () => {
   const error: CommandError = { code: "notificationUnavailable", messageKey: "errors.notificationUnavailable", details: { reasonCode: "schemaIncompatible" }, retryable: true };
-  const subscription = { initial: [aicelandItem()], listenerState: "degraded" as "active" | "degraded", retry: mocks.retry, dispose: mocks.dispose };
+  const subscription = { initial: [aislandItem()], listenerState: "degraded" as "active" | "degraded", retry: mocks.retry, dispose: mocks.dispose };
   mocks.beginSubscription.mockImplementation((_input, onError) => {
     queueMicrotask(() => onError(error));
     return { ready: Promise.resolve(subscription), dispose: mocks.dispose };
@@ -284,6 +284,6 @@ test("expands a long body accessibly and disposes a pending subscription on unmo
   await second.user.click(expand);
   expect(expand).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByText("A".repeat(480))).toBeVisible();
-  await act(async () => ready.resolve({ initial: [aicelandItem()], listenerState: "active", retry: mocks.retry, dispose: mocks.dispose }));
+  await act(async () => ready.resolve({ initial: [aislandItem()], listenerState: "active", retry: mocks.retry, dispose: mocks.dispose }));
   expect(screen.getAllByRole("listitem")).toHaveLength(1);
 });

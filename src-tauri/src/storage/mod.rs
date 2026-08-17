@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const DATABASE_FILE_NAME: &str = "aiceland.sqlite3";
+const DATABASE_FILE_NAME: &str = "aisland.sqlite3";
 
 #[derive(Clone, Copy)]
 struct Migration {

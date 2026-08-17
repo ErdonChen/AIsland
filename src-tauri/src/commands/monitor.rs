@@ -325,15 +325,15 @@ mod tests {
                 AppErrorCode::InvalidInput
             );
         }
-        assert!(process_watch_input(None, "aiceland.exe".into(), true, None).is_ok());
+        assert!(process_watch_input(None, "aisland.exe".into(), true, None).is_ok());
         assert_eq!(
-            process_watch_input(Some(id), "aiceland.exe".into(), true, None)
+            process_watch_input(Some(id), "aisland.exe".into(), true, None)
                 .unwrap_err()
                 .code,
             AppErrorCode::InvalidInput
         );
         assert_eq!(
-            process_watch_input(Some(id), "aiceland.exe".into(), true, Some(0))
+            process_watch_input(Some(id), "aisland.exe".into(), true, Some(0))
                 .unwrap_err()
                 .code,
             AppErrorCode::InvalidInput

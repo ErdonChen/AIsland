@@ -117,7 +117,7 @@ impl ProductSettingsService {
                 if changed_autostart {
                     if let Err(compensation_error) = self.apply_autostart(actual_enabled) {
                         log::error!(
-                            target: "aiceland::autostart",
+                            target: "aisland::autostart",
                             "stage=compensation status=failed commit_error={} compensation_error={}",
                             commit_error.message_key,
                             compensation_error.message_key

@@ -65,7 +65,7 @@ pub struct ValidatedAgentEvent {
     pub occurred_at: i64,
 }
 
-pub(crate) const AGENT_REPLY_MESSAGE_PREFIX: &str = "aiceland-agent-reply-v1:";
+pub(crate) const AGENT_REPLY_MESSAGE_PREFIX: &str = "aisland-agent-reply-v1:";
 
 pub(crate) fn agent_reply_preview_from_message(message: &str) -> Option<&str> {
     message.strip_prefix(AGENT_REPLY_MESSAGE_PREFIX)

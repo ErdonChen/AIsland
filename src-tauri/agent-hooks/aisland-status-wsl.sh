@@ -24,7 +24,7 @@ $native_event
 $sequence
 $source_occurred_at"; fi
 digest=$(printf '%s' "$material" | sha256sum); digest=${digest%% *}
-event_id="aiceland-$agent-$environment-$digest"
+event_id="aisland-$agent-$environment-$digest"
 case "$agent:$native_event" in
   *:PermissionRequest|*:pre_approval_request) status=waiting;;
   *:SessionStart|*:UserPromptSubmit|*:on_session_start|*:pre_llm_call) status=running;;
@@ -39,7 +39,7 @@ wire=$(printf '%s' "$normalized" | jq -c --arg agent "$agent" --arg environment 
   def display_value: if type == "string" then gsub("^\\s+|\\s+$"; "") | clip | if length > 0 then . else null end else null end;
   def display($name): .[$name] | display_value;
   def assistant_reply: if $native_event == "post_llm_call" then ((.extra.assistant_response | display_value) // (.last_assistant_message | display_value)) else (.last_assistant_message | display_value) end;
-  {schema_version:1,event_id:$event_id,agent:$agent,environment:$environment,task_id:$task_id,status:$status,occurred_at:$occurred_at,sequence:(.sequence | if type == "number" and floor == . and . >= 0 then . else null end),task_title:(display("task_title")),project:(display("project")),message:(if ($native_event == "Stop" or $native_event == "SubagentStop" or $native_event == "post_llm_call") then (assistant_reply as $reply | if $reply == null then null else ("aiceland-agent-reply-v1:" + $reply) end) else null end),path:(display("path"))} | with_entries(select(.value != null)) | select(type == "object" and length > 0)' ) || { echo 'invalidPayload' >&2; exit 1; }
+  {schema_version:1,event_id:$event_id,agent:$agent,environment:$environment,task_id:$task_id,status:$status,occurred_at:$occurred_at,sequence:(.sequence | if type == "number" and floor == . and . >= 0 then . else null end),task_title:(display("task_title")),project:(display("project")),message:(if ($native_event == "Stop" or $native_event == "SubagentStop" or $native_event == "post_llm_call") then (assistant_reply as $reply | if $reply == null then null else ("aisland-agent-reply-v1:" + $reply) end) else null end),path:(display("path"))} | with_entries(select(.value != null)) | select(type == "object" and length > 0)' ) || { echo 'invalidPayload' >&2; exit 1; }
 target_dir=$(dirname -- "$output_path"); target_name=$(basename -- "$output_path")
 mkdir -p -- "$target_dir"
 temporary=$(mktemp "$target_dir/.${target_name}.XXXXXX")

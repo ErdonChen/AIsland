@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AIceLand",
+  "productName": "AIsland",
+  "mainBinaryName": "AIsland",
   "version": "0.1.0",
-  "identifier": "com.aiceland.app",
+  "identifier": "com.aisland.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -58,10 +59,10 @@
     "targets": "all",
     "createUpdaterArtifacts": true,
     "resources": {
-      "agent-hooks/aiceland-status-windows.ps1": "agent-hooks/aiceland-status-windows.ps1",
-      "agent-hooks/aiceland-profile-event-windows.ps1": "agent-hooks/aiceland-profile-event-windows.ps1",
-      "agent-hooks/aiceland-status-wsl.sh": "agent-hooks/aiceland-status-wsl.sh",
-      "agent-hooks/aiceland-config-wsl.sh": "agent-hooks/aiceland-config-wsl.sh",
+      "agent-hooks/aisland-status-windows.ps1": "agent-hooks/aisland-status-windows.ps1",
+      "agent-hooks/aisland-profile-event-windows.ps1": "agent-hooks/aisland-profile-event-windows.ps1",
+      "agent-hooks/aisland-status-wsl.sh": "agent-hooks/aisland-status-wsl.sh",
+      "agent-hooks/aisland-config-wsl.sh": "agent-hooks/aisland-config-wsl.sh",
       "../README.md": "README.md"
     },
     "icon": [

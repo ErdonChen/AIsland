@@ -1,5 +1,5 @@
 [package]
-name = "aiceland"
+name = "aisland"
 version = "0.1.0"
 description = "A local-first multi-agent status island for Windows"
 authors = ["Erdon Chen", "AIsland contributors"]
@@ -10,7 +10,7 @@ homepage = "https://github.com/ErdonChen/AIsland"
 readme = "../README.md"
 
 [lib]
-name = "aiceland_lib"
+name = "aisland_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

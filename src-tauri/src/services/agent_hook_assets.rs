@@ -83,13 +83,13 @@ pub fn install_hook_assets(app: &tauri::AppHandle) -> Result<HookAssetPaths, Com
         .map_err(|_| hook_asset_error("appDataDir"))?;
     let windows_source = resource_dir
         .join("agent-hooks")
-        .join("aiceland-status-windows.ps1");
+        .join("aisland-status-windows.ps1");
     let profile_event_source = resource_dir
         .join("agent-hooks")
-        .join("aiceland-profile-event-windows.ps1");
+        .join("aisland-profile-event-windows.ps1");
     let wsl_source = resource_dir
         .join("agent-hooks")
-        .join("aiceland-status-wsl.sh");
+        .join("aisland-status-wsl.sh");
     let paths = install_hook_assets_with(
         &windows_app_data,
         &windows_source,
@@ -100,13 +100,13 @@ pub fn install_hook_assets(app: &tauri::AppHandle) -> Result<HookAssetPaths, Com
         &profile_event_source,
         &windows_app_data
             .join("agent-hooks")
-            .join("aiceland-profile-event-windows.ps1"),
+            .join("aisland-profile-event-windows.ps1"),
     )?;
     if paths.wsl_available {
         install_wsl_config_helper(
             &resource_dir
                 .join("agent-hooks")
-                .join("aiceland-config-wsl.sh"),
+                .join("aisland-config-wsl.sh"),
             &SystemWslHookAssetPort,
         )?;
     }
@@ -121,7 +121,7 @@ fn install_wsl_config_helper(
 ) -> Result<(), CommandError> {
     let home = wsl.home()?;
     let destination = format!(
-        "{}/.local/share/aiceland/agent-hooks/aiceland-config-wsl.sh",
+        "{}/.local/share/aisland/agent-hooks/aisland-config-wsl.sh",
         home.trim_end_matches('/')
     );
     let expected_sha = sha256_hex(&fs::read(source).map_err(|_| hook_asset_error("readResource"))?);
@@ -406,7 +406,7 @@ fn fallback_event_id(
     for byte in sha256(material.as_bytes()) {
         encoded.push_str(&format!("{byte:02x}"));
     }
-    format!("aiceland-{agent}-{environment}-{encoded}")
+    format!("aisland-{agent}-{environment}-{encoded}")
 }
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
@@ -442,7 +442,7 @@ fn wsl_asset_destinations(wsl_home: &str) -> Result<Vec<HookAssetPath>, CommandE
         return Err(hook_asset_error("wslHome"));
     }
     let root = format!(
-        "{}/.local/share/aiceland/agent-hooks",
+        "{}/.local/share/aisland/agent-hooks",
         wsl_home.trim_end_matches('/')
     );
     let mut paths = Vec::new();
@@ -569,25 +569,25 @@ mod tests {
             agent_id: AgentId::Codex,
             environment: AgentEnvironment::Windows,
             native_event: "SessionStart".into(),
-            output_path: r"C:\Users\Alice Smith\.aiceland\codex-windows.json".into(),
+            output_path: r"C:\Users\Alice Smith\.aisland\codex-windows.json".into(),
         };
         assert_eq!(
             windows_hook_command(
                 &windows,
-                Path::new(r"C:\Program Files\AIceLand\aiceland-status-windows.ps1")
+                Path::new(r"C:\Program Files\AIsland\aisland-status-windows.ps1")
             ),
-            r#"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\Program Files\AIceLand\aiceland-status-windows.ps1" -Agent "codex" -Environment "windows" -NativeEvent "SessionStart" -OutputPath "C:\Users\Alice Smith\.aiceland\codex-windows.json""#,
+            r#"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\Program Files\AIsland\aisland-status-windows.ps1" -Agent "codex" -Environment "windows" -NativeEvent "SessionStart" -OutputPath "C:\Users\Alice Smith\.aisland\codex-windows.json""#,
         );
 
         let wsl = HookInvocation {
             agent_id: AgentId::Codex,
             environment: AgentEnvironment::Wsl,
             native_event: "session start; never-run".into(),
-            output_path: "/home/alice smith/.aiceland/codex-wsl.json".into(),
+            output_path: "/home/alice smith/.aisland/codex-wsl.json".into(),
         };
         assert_eq!(
-            wsl_hook_command(&wsl, "/opt/AIceLand/aiceland-status-wsl.sh"),
-            "'/opt/AIceLand/aiceland-status-wsl.sh' --agent 'codex' --environment 'wsl' --native-event 'session start; never-run' --output-path '/home/alice smith/.aiceland/codex-wsl.json'",
+            wsl_hook_command(&wsl, "/opt/AIsland/aisland-status-wsl.sh"),
+            "'/opt/AIsland/aisland-status-wsl.sh' --agent 'codex' --environment 'wsl' --native-event 'session start; never-run' --output-path '/home/alice smith/.aisland/codex-wsl.json'",
         );
     }
 
@@ -700,7 +700,7 @@ mod tests {
     // register the seven fixed hook commands.
     #[test]
     fn fixed_asset_destinations_use_the_exact_tauri_app_data_directory() {
-        let mut paths = windows_asset_destinations(Path::new(r"C:\AppData\com.aiceland.app"));
+        let mut paths = windows_asset_destinations(Path::new(r"C:\AppData\com.aisland.app"));
         paths.extend(wsl_asset_destinations("/home/alice").unwrap());
         assert_eq!(paths.len(), 7);
         assert_eq!(
@@ -711,7 +711,7 @@ mod tests {
                 .unwrap()
                 .destination,
             HookAssetDestination::Windows(PathBuf::from(
-                r"C:\AppData\com.aiceland.app\agent-hooks\codex-windows.ps1"
+                r"C:\AppData\com.aisland.app\agent-hooks\codex-windows.ps1"
             ))
         );
         assert_eq!(
@@ -722,7 +722,7 @@ mod tests {
                 .unwrap()
                 .destination,
             HookAssetDestination::Wsl(
-                "/home/alice/.local/share/aiceland/agent-hooks/claude-wsl.sh".into()
+                "/home/alice/.local/share/aisland/agent-hooks/claude-wsl.sh".into()
             )
         );
         assert!(!paths
@@ -818,7 +818,7 @@ mod tests {
 
         assert_eq!(
             written["message"],
-            "aiceland-agent-reply-v1:Safe Agent reply"
+            "aisland-agent-reply-v1:Safe Agent reply"
         );
         let persisted = fs::read_to_string(output).unwrap();
         assert!(!persisted.contains("private user prompt"));
@@ -850,7 +850,7 @@ mod tests {
         assert_eq!(written["task_id"], "hermes-task");
         assert_eq!(
             written["message"],
-            "aiceland-agent-reply-v1:Safe Hermes reply"
+            "aisland-agent-reply-v1:Safe Hermes reply"
         );
         let persisted = fs::read_to_string(output).unwrap();
         assert!(!persisted.contains("private user prompt"));
@@ -895,11 +895,11 @@ mod tests {
     #[test]
     fn install_one_creates_a_fresh_appdata_parent_and_verifies_windows_asset_bytes() {
         let directory = tempfile::tempdir().unwrap();
-        let source = directory.path().join("aiceland-status-windows.ps1");
+        let source = directory.path().join("aisland-status-windows.ps1");
         let destination = directory
             .path()
             .join("fresh-appdata")
-            .join("com.aiceland")
+            .join("com.aisland")
             .join("agent-hooks")
             .join("codex-windows.ps1");
         let package_owned = b"package-owned-windows-hook";
@@ -919,8 +919,8 @@ mod tests {
     #[test]
     fn unavailable_wsl_still_installs_and_verifies_all_four_windows_assets() {
         let directory = tempfile::tempdir().unwrap();
-        let windows_source = directory.path().join("aiceland-status-windows.ps1");
-        let wsl_source = directory.path().join("aiceland-status-wsl.sh");
+        let windows_source = directory.path().join("aisland-status-windows.ps1");
+        let wsl_source = directory.path().join("aisland-status-wsl.sh");
         fs::write(&windows_source, b"windows package script").unwrap();
         fs::write(&wsl_source, b"wsl package script").unwrap();
 
@@ -953,14 +953,14 @@ mod tests {
     #[test]
     fn wsl_installer_passes_unix_destination_and_preserves_chmod_and_sha_contract() {
         let directory = tempfile::tempdir().unwrap();
-        let windows_source = directory.path().join("aiceland-status-windows.ps1");
-        let wsl_source = directory.path().join("aiceland-status-wsl.sh");
+        let windows_source = directory.path().join("aisland-status-windows.ps1");
+        let wsl_source = directory.path().join("aisland-status-wsl.sh");
         fs::write(&windows_source, b"windows package script").unwrap();
         fs::write(&wsl_source, b"wsl package script").unwrap();
         let wsl = CapturingWsl::new("/home/alice");
 
         let installed = install_hook_assets_with(
-            &directory.path().join("APPDATA/com.aiceland.app"),
+            &directory.path().join("APPDATA/com.aisland.app"),
             &windows_source,
             &wsl_source,
             &wsl,
@@ -970,12 +970,12 @@ mod tests {
         assert!(installed.wsl_available);
         assert_eq!(
             installed.wsl_status_dir.as_deref(),
-            Some("/mnt/c/Users/Alice/AppData/Roaming/com.aiceland.app/agent-status")
+            Some("/mnt/c/Users/Alice/AppData/Roaming/com.aisland.app/agent-status")
         );
         assert_eq!(wsl.installs.borrow().len(), 3);
         for (source, destination, expected_sha) in wsl.installs.borrow().iter() {
-            assert_eq!(source, "/mnt/c/package/aiceland-status-wsl.sh");
-            assert!(destination.starts_with("/home/alice/.local/share/aiceland/agent-hooks/"));
+            assert_eq!(source, "/mnt/c/package/aisland-status-wsl.sh");
+            assert!(destination.starts_with("/home/alice/.local/share/aisland/agent-hooks/"));
             assert!(!destination.contains('\\'));
             assert_eq!(expected_sha, &sha256_hex(b"wsl package script"));
         }
@@ -1018,9 +1018,9 @@ mod tests {
 
         fn unix_path(&self, path: &Path) -> Result<String, CommandError> {
             if path.ends_with("agent-status") {
-                Ok("/mnt/c/Users/Alice/AppData/Roaming/com.aiceland.app/agent-status".into())
+                Ok("/mnt/c/Users/Alice/AppData/Roaming/com.aisland.app/agent-status".into())
             } else {
-                Ok("/mnt/c/package/aiceland-status-wsl.sh".into())
+                Ok("/mnt/c/package/aisland-status-wsl.sh".into())
             }
         }
 
@@ -1083,7 +1083,7 @@ mod tests {
     ) -> std::process::Output {
         let script = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("agent-hooks")
-            .join("aiceland-status-windows.ps1");
+            .join("aisland-status-windows.ps1");
         let mut child = Command::new("powershell.exe")
             .args([
                 "-NoProfile",

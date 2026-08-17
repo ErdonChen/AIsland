@@ -106,7 +106,7 @@ try {
     }
     $sha256 = [Security.Cryptography.SHA256]::Create()
     try { $digest = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($nativeEventId)) } finally { $sha256.Dispose() }
-    $eventId = "aiceland-$Agent-$Environment-" + ([BitConverter]::ToString($digest).Replace('-', '')).ToLowerInvariant()
+    $eventId = "aisland-$Agent-$Environment-" + ([BitConverter]::ToString($digest).Replace('-', '')).ToLowerInvariant()
     $status = Get-NormalizedStatus $native $Agent $NativeEvent
     $wire = [ordered]@{
         schema_version = 1; event_id = $eventId; agent = $Agent; environment = $Environment; task_id = $taskId; status = $status
@@ -115,7 +115,7 @@ try {
         task_title = Get-OptionalText $native 'task_title'; project = Get-OptionalText $native 'project'; path = Get-OptionalText $native 'path'
     }
     $replyPreview = Get-AgentReplyPreview $native $NativeEvent
-    if ($null -ne $replyPreview) { $wire['message'] = "aiceland-agent-reply-v1:$replyPreview" }
+    if ($null -ne $replyPreview) { $wire['message'] = "aisland-agent-reply-v1:$replyPreview" }
     $stage = 'serialize'
     $json = $wire | ConvertTo-Json -Compress -Depth 3
     $stage = 'prepareTarget'

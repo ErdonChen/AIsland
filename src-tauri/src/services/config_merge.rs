@@ -258,10 +258,10 @@ fn yaml_entries_has(entries: &[serde_yaml::Value], fragment: &OwnedHookFragment)
     })
 }
 fn same_managed_script(candidate: &str, owned: &str) -> bool {
-    same_aiceland_managed_script(candidate, owned)
+    same_aisland_managed_script(candidate, owned)
 }
 
-pub(crate) fn same_aiceland_managed_script(candidate: &str, owned: &str) -> bool {
+pub(crate) fn same_aisland_managed_script(candidate: &str, owned: &str) -> bool {
     managed_script_identity(candidate)
         .zip(managed_script_identity(owned))
         .is_some_and(|(candidate, owned)| {
@@ -272,13 +272,10 @@ pub(crate) fn same_aiceland_managed_script(candidate: &str, owned: &str) -> bool
 fn migrated_app_data_script_identity(identity: &str) -> String {
     identity
         .replace(
-            "\\com.aiceland\\agent-hooks\\",
-            "\\com.aiceland.app\\agent-hooks\\",
+            "\\com.aisland\\agent-hooks\\",
+            "\\com.aisland.app\\agent-hooks\\",
         )
-        .replace(
-            "/com.aiceland/agent-hooks/",
-            "/com.aiceland.app/agent-hooks/",
-        )
+        .replace("/com.aisland/agent-hooks/", "/com.aisland.app/agent-hooks/")
 }
 
 fn managed_script_identity(command: &str) -> Option<&str> {
@@ -304,7 +301,7 @@ mod tests {
     fn hooks() -> Vec<OwnedHookFragment> {
         vec![OwnedHookFragment {
             event: "Stop".into(),
-            command: "C:/aiceland/codex.ps1".into(),
+            command: "C:/aisland/codex.ps1".into(),
         }]
     }
     #[test]
@@ -347,7 +344,7 @@ mod tests {
         let source = b"root: &keep value\nhooks:\n  post_llm_call:\n    - command: user\n      timeout: 8\noutbound: keep\n";
         let owned = vec![OwnedHookFragment {
             event: "post_llm_call".into(),
-            command: "/home/a/.local/share/aiceland/h.sh".into(),
+            command: "/home/a/.local/share/aisland/h.sh".into(),
         }];
         let (installed, _) = merge_config(
             source,
@@ -403,10 +400,10 @@ mod tests {
             owned[0].clone(),
             OwnedHookFragment {
                 event: "Missing".into(),
-                command: "C:/aiceland/missing.ps1".into(),
+                command: "C:/aisland/missing.ps1".into(),
             },
         ];
-        let mixed = br#"{"hooks":{"Stop":[{"matcher":"*","hooks":[{"type":"command","command":"C:/aiceland/codex.ps1"}]}]}}"#;
+        let mixed = br#"{"hooks":{"Stop":[{"matcher":"*","hooks":[{"type":"command","command":"C:/aisland/codex.ps1"}]}]}}"#;
         let (removed, changed) = merge_config(
             mixed,
             ConfigFormat::JsonHooks,
@@ -422,7 +419,7 @@ mod tests {
     #[test]
     fn repair_replaces_a_drifted_owned_handler_without_removing_user_handlers() {
         let owned = hooks();
-        let source = br#"{"hooks":{"Stop":[{"matcher":"*","hooks":[{"type":"command","command":"C:/aiceland/codex.ps1","extra":"drift"},{"type":"command","command":"user"}]}]}}"#;
+        let source = br#"{"hooks":{"Stop":[{"matcher":"*","hooks":[{"type":"command","command":"C:/aisland/codex.ps1","extra":"drift"},{"type":"command","command":"user"}]}]}}"#;
         let (repaired, changed) = merge_config(
             source,
             ConfigFormat::JsonHooks,
@@ -436,7 +433,7 @@ mod tests {
         assert_eq!(handlers.as_array().unwrap().len(), 2);
         assert_eq!(
             handlers[0],
-            serde_json::json!({"type":"command","command":"C:/aiceland/codex.ps1"})
+            serde_json::json!({"type":"command","command":"C:/aisland/codex.ps1"})
         );
         assert_eq!(handlers[1]["command"], "user");
     }
@@ -444,7 +441,7 @@ mod tests {
     #[test]
     fn repair_recognizes_owned_script_with_drifted_arguments_and_repairs_in_place() {
         let owned = hooks();
-        let source = br#"{"hooks":{"Stop":[{"matcher":"drifted","hooks":[{"type":"command","command":"C:/aiceland/codex.ps1 --wrong-args","extra":"drift"},{"type":"command","command":"user"}]}]}}"#;
+        let source = br#"{"hooks":{"Stop":[{"matcher":"drifted","hooks":[{"type":"command","command":"C:/aisland/codex.ps1 --wrong-args","extra":"drift"},{"type":"command","command":"user"}]}]}}"#;
 
         let (repaired, changed) = merge_config(
             source,
@@ -462,15 +459,15 @@ mod tests {
         assert_eq!(handlers.len(), 2);
         assert_eq!(
             handlers[0],
-            serde_json::json!({"type":"command","command":"C:/aiceland/codex.ps1"})
+            serde_json::json!({"type":"command","command":"C:/aisland/codex.ps1"})
         );
         assert_eq!(handlers[1]["command"], "user");
     }
 
     #[test]
-    fn repair_migrates_the_legacy_aiceland_app_data_path_in_place() {
-        let current = r#"powershell.exe -NoProfile -File "C:\Users\Alice\AppData\Roaming\com.aiceland.app\agent-hooks\hermes-windows.ps1" -OutputPath current"#;
-        let legacy = r#"powershell.exe -NoProfile -File "C:\Users\Alice\AppData\Roaming\com.aiceland\agent-hooks\hermes-windows.ps1" -OutputPath legacy"#;
+    fn repair_migrates_the_legacy_aisland_app_data_path_in_place() {
+        let current = r#"powershell.exe -NoProfile -File "C:\Users\Alice\AppData\Roaming\com.aisland.app\agent-hooks\hermes-windows.ps1" -OutputPath current"#;
+        let legacy = r#"powershell.exe -NoProfile -File "C:\Users\Alice\AppData\Roaming\com.aisland\agent-hooks\hermes-windows.ps1" -OutputPath legacy"#;
         let owned = vec![OwnedHookFragment {
             event: "post_llm_call".into(),
             command: current.into(),

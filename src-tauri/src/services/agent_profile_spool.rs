@@ -9,7 +9,7 @@ use crate::domain::agent_profiles::{
 use crate::events::{agent_profile_state_changed_payload, AGENT_PROFILE_STATE_CHANGED};
 use crate::repositories::agent_profiles::{AgentProfileProjectionOutcome, AgentProfileRepository};
 use crate::services::config_merge::{
-    inspect_config, merge_config, same_aiceland_managed_script, ConfigFormat, MergeAction,
+    inspect_config, merge_config, same_aisland_managed_script, ConfigFormat, MergeAction,
     OwnedHookFragment,
 };
 use crate::services::EventEmitterPort;
@@ -31,8 +31,8 @@ thread_local! {
 }
 
 const PROFILE_EVENT_SCRIPT: &[u8] =
-    include_bytes!("../../agent-hooks/aiceland-profile-event-windows.ps1");
-const PROFILE_EVENT_SCRIPT_NAME: &str = "aiceland-profile-event-windows.ps1";
+    include_bytes!("../../agent-hooks/aisland-profile-event-windows.ps1");
+const PROFILE_EVENT_SCRIPT_NAME: &str = "aisland-profile-event-windows.ps1";
 const MAX_SPOOL_EVENT_BYTES: u64 = 16 * 1024;
 const MAX_PRESET_CONFIG_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_STARTUP_SPOOL_FILES: usize = 4096;
@@ -401,11 +401,11 @@ fn rollback_paths(target: &Path) -> Result<RollbackPaths, CommandError> {
         .and_then(|value| value.to_str())
         .ok_or_else(|| io_error("presetConfigName"))?;
     Ok(RollbackPaths {
-        journal: parent.join(format!(".{name}.aiceland-rollback.json")),
-        candidate: parent.join(format!(".{name}.aiceland-rollback-candidate")),
-        displaced: parent.join(format!(".{name}.aiceland-rollback-displaced")),
-        rescue: parent.join(format!(".{name}.aiceland-rollback-rescue")),
-        rollover_rescue: parent.join(format!(".{name}.aiceland-rollback-rescue-next")),
+        journal: parent.join(format!(".{name}.aisland-rollback.json")),
+        candidate: parent.join(format!(".{name}.aisland-rollback-candidate")),
+        displaced: parent.join(format!(".{name}.aisland-rollback-displaced")),
+        rescue: parent.join(format!(".{name}.aisland-rollback-rescue")),
+        rollover_rescue: parent.join(format!(".{name}.aisland-rollback-rescue-next")),
     })
 }
 
@@ -2496,7 +2496,7 @@ fn cursor_entry_is_owned(entry: &serde_json::Value, fragment: &OwnedHookFragment
 }
 
 fn same_profile_script(candidate: &str, owned: &str) -> bool {
-    same_aiceland_managed_script(candidate, owned)
+    same_aisland_managed_script(candidate, owned)
 }
 
 fn merge_kimi(
@@ -2634,7 +2634,7 @@ fn windows_quote(value: &str) -> String {
 
 fn write_backup(path: &Path, bytes: &[u8], now: i64) -> Result<(), CommandError> {
     let backup = PathBuf::from(format!(
-        "{}.aiceland-backup-{now:019}-{}",
+        "{}.aisland-backup-{now:019}-{}",
         path.display(),
         uuid::Uuid::new_v4().simple()
     ));
@@ -2657,7 +2657,7 @@ fn prune_backups(path: &Path) -> Result<(), CommandError> {
         .file_name()
         .and_then(|value| value.to_str())
         .ok_or_else(|| io_error("presetConfigName"))?;
-    let prefix = format!("{file_name}.aiceland-backup-");
+    let prefix = format!("{file_name}.aisland-backup-");
     let mut backups = fs::read_dir(parent)
         .map_err(|_| io_error("presetBackupRead"))?
         .filter_map(Result::ok)
@@ -2687,7 +2687,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), CommandError> {
         .and_then(|value| value.to_str())
         .ok_or_else(|| io_error("presetConfigName"))?;
     let temporary = parent.join(format!(
-        ".{name}.aiceland-tmp-{}",
+        ".{name}.aisland-tmp-{}",
         uuid::Uuid::new_v4().simple()
     ));
     let mut file = OpenOptions::new()
@@ -2967,7 +2967,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let repository = repository(&root.path().join("db"));
         let emitter = Arc::new(RecordingEmitter::default());
-        let app_data_dir = root.path().join("data/com.aiceland.app");
+        let app_data_dir = root.path().join("data/com.aisland.app");
         let bridge = Arc::new(PresetProfileBridge::new(
             repository.clone(),
             emitter,
@@ -2991,7 +2991,7 @@ mod tests {
             command.contains(
                 app_data_dir
                     .join("agent-hooks")
-                    .join("aiceland-profile-event-windows.ps1")
+                    .join("aisland-profile-event-windows.ps1")
                     .to_string_lossy()
                     .as_ref()
             ),
@@ -3006,7 +3006,7 @@ mod tests {
             ),
             "expected exact spool path in {command}"
         );
-        assert!(!command.contains("com.aiceland.app\\com.aiceland"));
+        assert!(!command.contains("com.aisland.app\\com.aisland"));
         outcome.mutation.rollback().unwrap();
         bridge.finish_install(&id, false);
     }
@@ -3041,9 +3041,9 @@ mod tests {
     }
 
     #[test]
-    fn preset_repair_migrates_the_legacy_aiceland_app_data_path_in_place() {
-        let current = r#"powershell.exe -File "C:\Users\Alice\AppData\Roaming\com.aiceland.app\agent-hooks\aiceland-profile-event-windows.ps1" -ProfileId cursor-windows"#;
-        let legacy = r#"powershell.exe -File "C:\Users\Alice\AppData\Roaming\com.aiceland\agent-hooks\aiceland-profile-event-windows.ps1" -ProfileId cursor-windows"#;
+    fn preset_repair_migrates_the_legacy_aisland_app_data_path_in_place() {
+        let current = r#"powershell.exe -File "C:\Users\Alice\AppData\Roaming\com.aisland.app\agent-hooks\aisland-profile-event-windows.ps1" -ProfileId cursor-windows"#;
+        let legacy = r#"powershell.exe -File "C:\Users\Alice\AppData\Roaming\com.aisland\agent-hooks\aisland-profile-event-windows.ps1" -ProfileId cursor-windows"#;
         let owned = vec![OwnedHookFragment {
             event: "afterAgentResponse".into(),
             command: current.into(),
@@ -3102,7 +3102,7 @@ mod tests {
                 .filter(|entry| entry
                     .file_name()
                     .to_string_lossy()
-                    .contains("aiceland-backup"))
+                    .contains("aisland-backup"))
                 .count(),
             0
         );
@@ -3112,7 +3112,7 @@ mod tests {
     fn kimi_desktop_install_targets_its_effective_runtime_config() {
         let root = tempfile::tempdir().unwrap();
         let repository = repository(&root.path().join("db"));
-        let app_data_dir = root.path().join("roaming/com.aiceland.app");
+        let app_data_dir = root.path().join("roaming/com.aisland.app");
         let runtime_config = root
             .path()
             .join("roaming/kimi-desktop/daimon-share/daimon/runtime/kimi-code/config.toml");
@@ -3142,7 +3142,7 @@ mod tests {
         );
         assert!(fs::read_to_string(runtime_config)
             .unwrap()
-            .contains("aiceland-profile-event-windows.ps1"));
+            .contains("aisland-profile-event-windows.ps1"));
     }
 
     #[test]
@@ -3471,14 +3471,14 @@ mod tests {
         let descriptor = descriptor(root.path(), PresetAgentAdapterId::Kimi);
         let paths = rollback_paths(&descriptor.config_path).unwrap();
         let vendor = b"api_key = \"vendor-rescue\"\n";
-        fs::write(&paths.candidate, b"aiceland-candidate").unwrap();
+        fs::write(&paths.candidate, b"aisland-candidate").unwrap();
         fs::write(&paths.displaced, vendor).unwrap();
 
         let error = recover_rollback_journal(&descriptor).unwrap_err();
 
         assert_eq!(error.code, AppErrorCode::Conflict);
         assert_eq!(fs::read(&paths.displaced).unwrap(), vendor);
-        assert_eq!(fs::read(&paths.candidate).unwrap(), b"aiceland-candidate");
+        assert_eq!(fs::read(&paths.candidate).unwrap(), b"aisland-candidate");
     }
 
     #[test]
@@ -4271,12 +4271,12 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn rollback_crash_child_fixture() {
-        let Ok(root) = std::env::var("AICELAND_ROLLBACK_CRASH_ROOT") else {
+        let Ok(root) = std::env::var("AISLAND_ROLLBACK_CRASH_ROOT") else {
             return;
         };
-        let phase = std::env::var("AICELAND_ROLLBACK_CRASH_PHASE").unwrap();
+        let phase = std::env::var("AISLAND_ROLLBACK_CRASH_PHASE").unwrap();
         let originally_existed =
-            std::env::var("AICELAND_ROLLBACK_ORIGINALLY_EXISTED").unwrap() == "true";
+            std::env::var("AISLAND_ROLLBACK_ORIGINALLY_EXISTED").unwrap() == "true";
         let descriptor = descriptor(Path::new(&root), PresetAgentAdapterId::Kimi);
         if originally_existed {
             fs::write(
@@ -4398,10 +4398,10 @@ mod tests {
                     "services::agent_profile_spool::tests::rollback_crash_child_fixture",
                     "--nocapture",
                 ])
-                .env("AICELAND_ROLLBACK_CRASH_ROOT", root.path())
-                .env("AICELAND_ROLLBACK_CRASH_PHASE", phase)
+                .env("AISLAND_ROLLBACK_CRASH_ROOT", root.path())
+                .env("AISLAND_ROLLBACK_CRASH_PHASE", phase)
                 .env(
-                    "AICELAND_ROLLBACK_ORIGINALLY_EXISTED",
+                    "AISLAND_ROLLBACK_ORIGINALLY_EXISTED",
                     originally_existed.to_string(),
                 )
                 .stdout(Stdio::null())
@@ -4443,9 +4443,9 @@ mod tests {
                     "services::agent_profile_spool::tests::rollback_crash_child_fixture",
                     "--nocapture",
                 ])
-                .env("AICELAND_ROLLBACK_CRASH_ROOT", root.path())
-                .env("AICELAND_ROLLBACK_CRASH_PHASE", phase)
-                .env("AICELAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
+                .env("AISLAND_ROLLBACK_CRASH_ROOT", root.path())
+                .env("AISLAND_ROLLBACK_CRASH_PHASE", phase)
+                .env("AISLAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status()
@@ -4484,9 +4484,9 @@ mod tests {
                 "services::agent_profile_spool::tests::rollback_crash_child_fixture",
                 "--nocapture",
             ])
-            .env("AICELAND_ROLLBACK_CRASH_ROOT", root.path())
-            .env("AICELAND_ROLLBACK_CRASH_PHASE", phase)
-            .env("AICELAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
+            .env("AISLAND_ROLLBACK_CRASH_ROOT", root.path())
+            .env("AISLAND_ROLLBACK_CRASH_PHASE", phase)
+            .env("AISLAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -4514,9 +4514,9 @@ mod tests {
                 "services::agent_profile_spool::tests::rollback_crash_child_fixture",
                 "--nocapture",
             ])
-            .env("AICELAND_ROLLBACK_CRASH_ROOT", root.path())
-            .env("AICELAND_ROLLBACK_CRASH_PHASE", phase)
-            .env("AICELAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
+            .env("AISLAND_ROLLBACK_CRASH_ROOT", root.path())
+            .env("AISLAND_ROLLBACK_CRASH_PHASE", phase)
+            .env("AISLAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -4552,9 +4552,9 @@ mod tests {
                     "services::agent_profile_spool::tests::rollback_crash_child_fixture",
                     "--nocapture",
                 ])
-                .env("AICELAND_ROLLBACK_CRASH_ROOT", root.path())
-                .env("AICELAND_ROLLBACK_CRASH_PHASE", phase)
-                .env("AICELAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
+                .env("AISLAND_ROLLBACK_CRASH_ROOT", root.path())
+                .env("AISLAND_ROLLBACK_CRASH_PHASE", phase)
+                .env("AISLAND_ROLLBACK_ORIGINALLY_EXISTED", "true")
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status()
@@ -4575,7 +4575,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_first_install_removes_aiceland_created_kimi_and_qoder_configs() {
+    fn failed_first_install_removes_aisland_created_kimi_and_qoder_configs() {
         for adapter in [PresetAgentAdapterId::Kimi, PresetAgentAdapterId::Qoderwork] {
             let root = tempfile::tempdir().unwrap();
             let descriptor = descriptor(root.path(), adapter);
@@ -4645,7 +4645,7 @@ mod tests {
                 entry
                     .file_name()
                     .to_string_lossy()
-                    .contains("aiceland-backup")
+                    .contains("aisland-backup")
             })
             .count();
         assert_eq!(backups, MAX_BACKUPS_PER_CONFIG);

@@ -14,6 +14,7 @@ test("the unsigned preview workflow stays isolated from stable releases", async 
   assert.doesNotMatch(workflow, /\n\s+push:/);
   assert.match(workflow, /publish:\s*\n(?:\s+.*\n)*?\s+type:\s*boolean(?:\s*\n(?:\s+.*\n)*?\s+default:\s*false)?/);
   assert.match(workflow, /contents:\s*write/);
+  assert.match(workflow, /verify-brand-name\.mjs/);
   assert.match(workflow, /runs-on:\s*windows-2022/);
   assert.match(workflow, /PREVIEW_SOURCE_REF:\s*\$\{\{\s*github\.ref\s*\}\}/);
   assert.match(workflow, /refs\/heads\/main/);
@@ -26,6 +27,7 @@ test("the unsigned preview workflow stays isolated from stable releases", async 
   assert.doesNotMatch(workflow, /--config\s+['"]\{/);
   assert.match(workflow, /SignatureStatus\]::NotSigned/);
   assert.match(workflow, /Expected exactly one NSIS installer/);
+  assert.match(workflow, /AIsland_\$\(\$env:APP_VERSION\)_x64-setup\.exe/);
   assert.match(workflow, /Get-FileHash[^\n]+SHA256/);
   assert.match(workflow, /SHA256SUMS\.txt/);
   assert.match(workflow, /gh release create/);

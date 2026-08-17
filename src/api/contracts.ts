@@ -57,7 +57,7 @@ export interface MediaSnapshot { sessionId: string | null; title: string; artist
 // MediaSnapshot.volumePercent, MediaSnapshot.canSetVolume, and setVolume refer only to the Windows default render endpoint master volume.
 export interface MonitorSnapshot { cpuPercent: number; memoryUsedBytes: number; memoryTotalBytes: number; diskReadBytesPerSecond: number; diskWriteBytesPerSecond: number; networkReceiveBytesPerSecond: number; networkSendBytesPerSecond: number; gpuPercent: number | null; sampledAt: UnixMillis; }
 export interface ProcessWatch { id: EntityId; processName: string; enabled: boolean; revision: Revision; updatedAt: UnixMillis; }
-export interface NotificationHistoryItem { id: EntityId; origin: "windows" | "aiceland"; appId: string; sourceEntityId: string; title: string; body: string; messageKey: string | null; messageParameters: SafeMessageParameters; sourceContext: ReminderSourceContext | null; sourceOccurredAt: UnixMillis; receivedAt: UnixMillis; readAt: UnixMillis | null; }
+export interface NotificationHistoryItem { id: EntityId; origin: "windows" | "aisland"; appId: string; sourceEntityId: string; title: string; body: string; messageKey: string | null; messageParameters: SafeMessageParameters; sourceContext: ReminderSourceContext | null; sourceOccurredAt: UnixMillis; receivedAt: UnixMillis; readAt: UnixMillis | null; }
 export interface ModulePreference { moduleId: ModuleId; visible: boolean; backgroundEnabled: boolean; revision: Revision; updatedAt: UnixMillis; }
 export interface GeneralSettings { launchAtStartup: boolean; revision: Revision; updatedAt: UnixMillis; }
 export type UpdateCheckStatus = "upToDate" | "available";
@@ -183,12 +183,12 @@ export interface ProcessMetric { pid: number; processName: string; cpuPercent: n
 export interface SaveProcessWatchInput { id: EntityId | null; processName: string; enabled: boolean; expectedRevision: Revision | null; }
 export interface MonitorThreshold { id: EntityId; metric: MonitorMetric; comparator: ThresholdComparator; thresholdValue: number; holdSeconds: number; cooldownSeconds: number; sound: ReminderSound; toastEnabled: boolean; windowEnabled: boolean; enabled: boolean; revision: Revision; updatedAt: UnixMillis; }
 export interface SaveMonitorThresholdInput extends Omit<MonitorThreshold, "id" | "revision" | "updatedAt"> { id: EntityId | null; expectedRevision: Revision | null; }
-export interface ListNotificationHistoryInput { origin: "all" | "windows" | "aiceland"; sourceApp: string | null; unreadOnly: boolean; limit: number; }
+export interface ListNotificationHistoryInput { origin: "all" | "windows" | "aisland"; sourceApp: string | null; unreadOnly: boolean; limit: number; }
 export interface SetNotificationReadInput { id: EntityId; read: boolean; }
 export interface DeleteNotificationHistoryInput { id: EntityId; confirmRemoval: true; }
 export interface ClearNotificationHistoryInput { before: UnixMillis | null; confirmRemoval: true; }
 export type MonitorMetricsChangedPayload = { sampledAt: UnixMillis };
-export type NotificationHistoryChangedPayload = { newestReceivedAt: UnixMillis; origin: "windows" | "aiceland" };
+export type NotificationHistoryChangedPayload = { newestReceivedAt: UnixMillis; origin: "windows" | "aisland" };
 export interface AdvanceOnboardingInput { nextStep: OnboardingStep; locale: Locale; modulePreferences: ModulePreference[]; privacyConsent: PrivacyConsent | null; expectedRevision: Revision; }
 export interface SetModulePreferenceInput { moduleId: ModuleId; visible: boolean; backgroundEnabled: boolean; expectedRevision: Revision; }
 export interface SaveGeneralSettingsInput { launchAtStartup: boolean; expectedRevision: Revision; }

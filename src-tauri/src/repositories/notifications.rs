@@ -17,7 +17,7 @@ pub struct NotificationRepository {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NotificationOrigin {
     Windows,
-    Aiceland,
+    AIsland,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NotificationCursor {
@@ -122,7 +122,7 @@ impl NotificationRepository {
         let origin = match input.origin {
             crate::contracts::NotificationOriginFilter::All => "all",
             crate::contracts::NotificationOriginFilter::Windows => "windows",
-            crate::contracts::NotificationOriginFilter::Aiceland => "aiceland",
+            crate::contracts::NotificationOriginFilter::AIsland => "aisland",
         };
         self.storage.with_connection(|c|{let mut s=c.prepare("SELECT id,origin,app_id,source_entity_id,title,body,message_key,message_parameters_json,source_context_json,source_occurred_at,received_at,read_at FROM notification_history WHERE removed_at IS NULL AND (?1='all' OR origin=?1) AND (?2 IS NULL OR app_id=?2) AND (?3=0 OR read_at IS NULL) ORDER BY received_at DESC,id DESC LIMIT ?4")?;let rows=s.query_map(params![origin,input.source_app,input.unread_only,input.limit],row_to_item)?.collect::<Result<Vec<_>,_>>()?;Ok(rows)})
     }
@@ -177,7 +177,7 @@ fn validate_import(
         return Err(invalid_input());
     }
     for item in items {
-        if let NotificationOrigin::Aiceland = item.origin {
+        if let NotificationOrigin::AIsland = item.origin {
             MessageParameterContract::validate_for(
                 MessageUsage::ReminderDisplay,
                 item.message_key.as_deref().ok_or_else(invalid_input)?,
@@ -205,7 +205,7 @@ fn valid_import(i: &ImportedNotification) -> bool {
                 && i.message_parameters.is_none()
                 && i.source_context.is_none()
         }
-        NotificationOrigin::Aiceland => {
+        NotificationOrigin::AIsland => {
             let (Some(key), Some(parameters), Some(context)) =
                 (&i.message_key, &i.message_parameters, &i.source_context)
             else {
@@ -252,7 +252,7 @@ fn source_context_occurred_at(context: &ReminderSourceContext) -> i64 {
 fn origin_name(v: NotificationOrigin) -> &'static str {
     match v {
         NotificationOrigin::Windows => "windows",
-        NotificationOrigin::Aiceland => "aiceland",
+        NotificationOrigin::AIsland => "aisland",
     }
 }
 fn row_to_item(r: &Row<'_>) -> rusqlite::Result<NotificationHistoryItem> {
@@ -263,7 +263,7 @@ fn row_to_item(r: &Row<'_>) -> rusqlite::Result<NotificationHistoryItem> {
         id: r.get(0)?,
         origin: match origin.as_str() {
             "windows" => ContractOrigin::Windows,
-            "aiceland" => ContractOrigin::Aiceland,
+            "aisland" => ContractOrigin::AIsland,
             _ => return Err(rusqlite::Error::InvalidQuery),
         },
         app_id: r.get(2)?,

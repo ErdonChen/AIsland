@@ -89,7 +89,7 @@ test("shows native and Profile Agents in a scrollable list with the latest statu
 
 test("keeps the native claude name lowercase when UI language changes", async () => {
   // Capitalizing or translating the fixed native name must fail this contract.
-  localStorage.setItem("aiceland.ui.language", "en-US");
+  localStorage.setItem("aisland.ui.language", "en-US");
   const componentPath = "./AgentsPage";
   const { default: AgentsPage } = await import(componentPath);
   render(<I18nProvider><AgentsPage agents={agents} /></I18nProvider>);

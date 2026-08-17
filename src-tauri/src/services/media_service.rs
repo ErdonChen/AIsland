@@ -128,7 +128,7 @@ impl MediaService {
         let callback_generation = current_generation.clone();
         let pending_change = Arc::new(Mutex::new(None::<PendingMediaChange>));
         let join = std::thread::Builder::new()
-            .name(format!("aiceland-media-{generation}"))
+            .name(format!("aisland-media-{generation}"))
             .spawn(move || {
                 let backend = factory.create();
                 if backend.is_err() && current_generation.load(Ordering::Acquire) == generation {

@@ -76,7 +76,7 @@ let subscriptionRows: ClipboardItem[];
 let deliverSnapshot: ((rows: ClipboardItem[]) => void) | undefined;
 
 async function renderClipboard(initialKind: "all" | "text" | "image" = "all") {
-  localStorage.setItem("aiceland.ui.language", "en-US");
+  localStorage.setItem("aisland.ui.language", "en-US");
   const user = userEvent.setup();
   const view = render(<I18nProvider><ClipboardPage initialKind={initialKind} /></I18nProvider>);
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
@@ -218,7 +218,7 @@ describe("clipboard history page", () => {
     const { user } = await renderClipboard();
 
     await user.click(screen.getByRole("button", { name: "Delete — Delete me" }));
-    expect(mocks.confirm).toHaveBeenCalledWith("Delete this AIceLand clipboard item?");
+    expect(mocks.confirm).toHaveBeenCalledWith("Delete this AIsland clipboard item?");
     expect(screen.getByTestId("clipboard-item-item-1")).toBeInTheDocument();
     deletion.resolve({ id: "item-1", deleted: true });
     await waitFor(() => expect(screen.queryByTestId("clipboard-item-item-1")).not.toBeInTheDocument());
@@ -234,7 +234,7 @@ describe("clipboard history page", () => {
     const { user } = await renderClipboard();
 
     await user.click(screen.getByRole("button", { name: "Clear unpinned only" }));
-    expect(mocks.confirm).toHaveBeenCalledWith("Clear AIceLand clipboard history in the selected scope?");
+    expect(mocks.confirm).toHaveBeenCalledWith("Clear AIsland clipboard history in the selected scope?");
     expect(mocks.clearClipboardHistory).toHaveBeenCalledWith({ keepPinned: true });
     expect(screen.getByText("Remove")).toBeVisible();
     clearing.resolve({ removedCount: 1 });
