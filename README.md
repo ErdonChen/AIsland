@@ -25,6 +25,8 @@ AIsland 是一款运行在 Windows 上的桌面悬浮工具。它把多个 AI Ag
 
 窗口平时保持紧凑，需要时可以展开。除了 Agent 监控，AIsland 还集成了 Windows 通知、Markdown 每日笔记、剪贴板历史和系统监控。
 
+https://github.com/user-attachments/assets/faeef743-5b6f-4357-9d71-ef28cfe4acdb
+
 ## 星舰视图
 
 星舰视图把已连接的 Agent 排成一组状态位。最近发生变化的 Agent 会排在前面，打开多个 Agent 时可以向下滚动查看。
