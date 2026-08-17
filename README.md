@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/readme-header.svg" alt="AIsland，多 Agent 状态岛" width="760">
+  <img src="public/aisland-icon.svg" alt="AIsland LOGO" width="160">
 </p>
 
 <h1 align="center">AIsland</h1>
@@ -25,16 +25,18 @@ AIsland 是一款运行在 Windows 上的桌面悬浮工具。它把多个 AI Ag
 
 窗口平时保持紧凑，需要时可以展开。除了 Agent 监控，AIsland 还集成了 Windows 通知、Markdown 每日笔记、剪贴板历史和系统监控。
 
+https://github.com/user-attachments/assets/faeef743-5b6f-4357-9d71-ef28cfe4acdb
+
 ## 星舰视图
 
 星舰视图把已连接的 Agent 排成一组状态位。最近发生变化的 Agent 会排在前面，打开多个 Agent 时可以向下滚动查看。
 
 <p align="center">
-  <img src="docs/images/starship-compact.jpg" alt="AIsland 星舰紧凑视图" width="430">
+  <img src="docs/images/readme-starship-compact.png" alt="AIsland 星舰紧凑视图" width="492">
 </p>
 
 <p align="center">
-  <img src="docs/images/agent-home-redacted.png" alt="AIsland Agent 状态主页，回复内容已打码">
+  <img src="docs/images/readme-agent-status.png" alt="AIsland Agent 状态主页">
 </p>
 
 状态灯的含义：
@@ -60,7 +62,7 @@ AIsland 会显示 Agent 的工作、完成、空闲和离线状态。支持的�
 先打开需要监控的 Agent，再进入 `设置 > Agent 与接入`，点击 `一键检测并配置 Hook`。AIsland 会识别正在运行的受支持 Agent，并优先使用可用的原生源。
 
 <p align="center">
-  <img src="docs/images/agent-integrations.jpg" alt="AIsland Agent 检测与接入页面">
+  <img src="docs/images/readme-agent-integrations.png" alt="AIsland Agent 检测与接入页面">
 </p>
 
 一键检测只检查进程和固定配置位置。原生源始终只读；当用户明确点击自动配置时，AIsland 才会修改自己管理的 Hook 条目，并保留 Agent 原有配置。
@@ -80,8 +82,7 @@ Custom Hook 适合兼容接入，但不等同于原生支持。厂商没有提�
 - 托盘与启动：窗口可收进系统托盘，并可在设置中管理开机启动、语言、缩放和外观。
 
 <p align="center">
-  <img src="docs/images/system-monitor.jpg" alt="AIsland 系统监控页面" width="49%">
-  <img src="docs/images/notifications-redacted.png" alt="AIsland 通知中心，通知内容已打码" width="49%">
+  <img src="docs/images/readme-system-monitor.png" alt="AIsland 系统监控页面">
 </p>
 
 ## Agent 支持情况
