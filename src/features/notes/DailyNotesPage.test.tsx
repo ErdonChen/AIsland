@@ -235,14 +235,15 @@ describe("daily note lifecycle and autosave", () => {
   });
 
   it("creates an absent date only after its first non-empty debounced draft", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
     mocks.getDailyNote.mockResolvedValue(null);
     const { editor } = await renderNotes();
-    await vi.advanceTimersByTimeAsync(1_000);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
     expect(mocks.createNote).not.toHaveBeenCalled();
     fireEvent.change(editor, { target: { value: "# First day" } });
-    await vi.advanceTimersByTimeAsync(599);
+    await act(async () => { await vi.advanceTimersByTimeAsync(599); });
     expect(mocks.createNote).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(mocks.createNote).toHaveBeenCalledWith({ noteDate: "2026-08-08", bodyMarkdown: "# First day" });
   });
 
