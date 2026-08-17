@@ -4,9 +4,13 @@ AIsland publishes Windows updates from `.github/workflows/release-windows.yml`.
 The workflow accepts only an existing `v<semver>` tag whose version matches
 `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
 
-The public repository currently distributes source code only. Do not publish
-an installer or portable executable until trusted Authenticode signing is
-configured. Tauri updater signatures do not replace Authenticode.
+This workflow is only for stable, Authenticode-signed releases. A narrowly
+scoped unsigned installer may be published for technical testing by following
+`docs/unsigned-preview-release.md` and the separate manual workflow at
+`.github/workflows/release-windows-preview.yml`. It must use a `preview-v*`
+tag, remain a GitHub Pre-release, and stay outside the stable updater channel.
+Never weaken this signed workflow to publish an unsigned preview. Tauri updater
+signatures do not replace Authenticode.
 
 ## One-time repository setup
 

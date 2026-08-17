@@ -122,7 +122,9 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 
 ## 当前发布状态
 
-首版只公开源码与构建指南。普通用户安装包和便携 EXE 会在取得受信任 Authenticode 签名，并通过签名发布门禁后再提供；项目不会用无签名二进制替代这一门槛。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。
+项目可以发布供技术测试用户使用的未签名 Windows 安装包，但只能作为明确标注的 GitHub Pre-release：发布标题和说明必须注明“未签名预览版”，附带 SHA-256，不得标记为 `Latest`，也不得发布 `latest.json` 或进入正式自动更新通道。
+
+面向普通用户的正式版、`Latest` 和便携 EXE 仍须取得受信任的 Authenticode 签名，并通过签名发布门禁。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。具体规则见[未签名预览版发布指南](docs/unsigned-preview-release.md)和[Windows 代码签名政策](docs/code-signing.md)。
 
 当前正式支持 Windows 11 x64。Windows 10 x64 可能兼容，但尚未纳入完整门禁；Windows ARM、macOS 和 Linux 桌面版不在首版支持范围。
 
@@ -150,6 +152,7 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [后端状态](docs/backend-status.md)
 - [前端状态](docs/frontend-status.md)
 - [Community / Pro 边界](docs/open-core.md)
+- [未签名预览版发布指南](docs/unsigned-preview-release.md)
 - [Windows 代码签名政策](docs/code-signing.md)
 
 ## 参与、隐私与许可

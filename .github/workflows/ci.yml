@@ -73,6 +73,8 @@ jobs:
           workspaces: ./src-tauri -> target
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify release workflow contracts
+        run: node --test .github/scripts/verify-release-workflow.mjs .github/scripts/verify-preview-release-workflow.mjs
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
       - name: Run frontend tests

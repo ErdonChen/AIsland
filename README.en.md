@@ -122,7 +122,9 @@ AIsland runs locally and reads supported agent session sources in read-only mode
 
 ## Current distribution status
 
-The first release publishes source code and build instructions only. Installers and portable executables will be offered only after the project obtains a trusted Authenticode signature and the signed-release gate passes. Unsigned binaries will not be used as a substitute. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust.
+AIsland may publish an unsigned Windows installer for technical testers, but only as a clearly labeled GitHub Pre-release. Its title and notes must say `Unsigned Preview`, include a SHA-256 checksum, never mark the release as `Latest`, and never publish `latest.json` or place the build on the stable updater channel.
+
+Stable releases for ordinary users, `Latest` releases, and portable executables still require a trusted Authenticode signature and must pass the signed-release gate. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust. See the [unsigned preview release guide](docs/unsigned-preview-release.md) and [Windows code-signing policy](docs/code-signing.md).
 
 Windows 11 x64 is the supported platform. Windows 10 x64 may work but is not included in the complete release gate. Windows on ARM, macOS, and Linux desktop builds are outside the first-release scope.
 
@@ -150,6 +152,7 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [Backend status](docs/backend-status.md)
 - [Frontend status](docs/frontend-status.md)
 - [Community / Pro boundary](docs/open-core.md)
+- [Unsigned preview release guide](docs/unsigned-preview-release.md)
 - [Windows code-signing policy](docs/code-signing.md)
 
 ## Contributing, privacy, and licensing
