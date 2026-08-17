@@ -19,7 +19,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 arboard = "3.6.1"
 async-trait = "0.1.91"
-base64 = "0.22.1"
+base64 = "0.23.1"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "png"] }
 log = "0.4"
 notify = "8.2.0"
