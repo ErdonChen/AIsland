@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/readme-header.svg" alt="AIsland, a multi-agent status island" width="760">
+  <img src="public/aisland-icon.svg" alt="AIsland logo" width="160">
 </p>
 
 <h1 align="center">AIsland</h1>
@@ -30,11 +30,11 @@ The window stays compact when you do not need it and expands when you want more 
 Starship view arranges connected agents into a small status array. Agents with recent activity move to the front, and the expanded list scrolls when more agents are open.
 
 <p align="center">
-  <img src="docs/images/starship-compact.jpg" alt="AIsland compact Starship view" width="430">
+  <img src="docs/images/readme-starship-compact.png" alt="AIsland compact Starship view" width="492">
 </p>
 
 <p align="center">
-  <img src="docs/images/agent-home-redacted.png" alt="AIsland Agent home page with reply text redacted">
+  <img src="docs/images/readme-agent-status.png" alt="AIsland Agent status page">
 </p>
 
 Status lights use the following colors:
@@ -60,7 +60,7 @@ AIsland shows running, completed, idle, and offline states. Supported native sou
 Open the agents you want to monitor, then go to `Settings > Agents and integrations` and select `Detect and configure Hooks`. AIsland checks supported running agents and uses a native source whenever one is available.
 
 <p align="center">
-  <img src="docs/images/agent-integrations.jpg" alt="AIsland agent detection and integration page">
+  <img src="docs/images/readme-agent-integrations.png" alt="AIsland agent detection and integration page">
 </p>
 
 Detection checks running processes and fixed configuration locations. Native sources remain read-only. AIsland changes only its managed Hook entries, and preserves unrelated configuration, after the user explicitly starts automatic setup.
@@ -80,8 +80,7 @@ A Custom Hook is a compatibility path, not a replacement for a native adapter. S
 - Tray and startup controls: hide AIsland in the system tray and manage startup, language, scaling, and appearance from Settings.
 
 <p align="center">
-  <img src="docs/images/system-monitor.jpg" alt="AIsland system monitor" width="49%">
-  <img src="docs/images/notifications-redacted.png" alt="AIsland notification center with notification content redacted" width="49%">
+  <img src="docs/images/readme-system-monitor.png" alt="AIsland system monitor">
 </p>
 
 ## Agent support
