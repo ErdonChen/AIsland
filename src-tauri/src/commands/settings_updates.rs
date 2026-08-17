@@ -53,7 +53,7 @@ struct ChannelEventSink(Channel<UpdateInstallEvent>);
 impl UpdateEventSink for ChannelEventSink {
     fn send(&self, event: UpdateInstallEvent) {
         if self.0.send(event).is_err() {
-            log::warn!(target: "aiceland::updater", "stage=progress_channel status=closed");
+            log::warn!(target: "aisland::updater", "stage=progress_channel status=closed");
         }
     }
 }

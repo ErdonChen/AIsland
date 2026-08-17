@@ -94,6 +94,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify AIsland brand naming
+        run: node .github/scripts/verify-brand-name.mjs
+
       - name: Verify the preview release workflow contract
         run: node --test .github/scripts/verify-preview-release-workflow.mjs
 
@@ -119,6 +122,10 @@ jobs:
           if ($installers.Count -ne 1) {
             throw "Expected exactly one NSIS installer, found $($installers.Count)."
           }
+          $expectedInstallerName = "AIsland_$($env:APP_VERSION)_x64-setup.exe"
+          if ($installers[0].Name -ne $expectedInstallerName) {
+            throw "Expected installer '$expectedInstallerName', received '$($installers[0].Name)'."
+          }
 
           $signature = Get-AuthenticodeSignature -LiteralPath $installers[0].FullName
           $signature | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
@@ -133,7 +140,7 @@ jobs:
             throw "Unsigned previews must not contain updater metadata: $($forbidden.FullName -join ', ')"
           }
 
-          $stagingRoot = Join-Path $env:RUNNER_TEMP "aiceland-unsigned-preview"
+          $stagingRoot = Join-Path $env:RUNNER_TEMP "aisland-unsigned-preview"
           New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
           $stagedInstaller = Join-Path $stagingRoot $installers[0].Name
           Copy-Item -LiteralPath $installers[0].FullName -Destination $stagedInstaller
@@ -150,6 +157,12 @@ jobs:
             "> and UAC may show Unknown publisher. Download it only from the official",
             "> AIsland GitHub repository and verify the SHA-256 checksum before running it.",
             "> Do not disable Microsoft Defender or SmartScreen.",
+            "",
+            "## AIsland naming update",
+            "",
+            "- The product, installer, executable, shortcuts, data paths, and internal identifiers now use AIsland.",
+            "- The application identifier is com.aisland.app.",
+            "- Uninstall preview-v0.1.0.1 before installing this build; settings and data from that preview are not migrated automatically.",
             "",
             "## Build provenance",
             "",
@@ -224,7 +237,7 @@ jobs:
             }
           }
 
-          $downloadRoot = Join-Path $env:RUNNER_TEMP "aiceland-preview-download-verification"
+          $downloadRoot = Join-Path $env:RUNNER_TEMP "aisland-preview-download-verification"
           New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
           gh release download $env:PREVIEW_TAG `
             --repo $env:GITHUB_REPOSITORY `

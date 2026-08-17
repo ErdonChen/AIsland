@@ -709,7 +709,7 @@ test("keeps non-Agent reminder deliveries out of the island Agent notification s
 });
 
 test("keeps the compact island collapsed when notification pop-ups are disabled", async () => {
-  localStorage.setItem("aiceland.notifications.popup.v1", "false");
+  localStorage.setItem("aisland.notifications.popup.v1", "false");
   invokeMock.mockImplementation((command: string) => {
     if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
@@ -733,7 +733,7 @@ test("keeps the compact island collapsed when notification pop-ups are disabled"
 });
 
 test("loads authoritative Windows notification content and expands only after the history invalidation", async () => {
-  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aiceland" } }) => void) | undefined;
+  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aisland" } }) => void) | undefined;
   const now = Date.now();
   listenMock.mockImplementation((eventName: string, handler: typeof notificationHistoryChanged) => {
     if (eventName === "notificationHistoryChanged") notificationHistoryChanged = handler;
@@ -777,7 +777,7 @@ test("loads authoritative Windows notification content and expands only after th
 test("coalesces burst Windows notification invalidations and displays only the latest authoritative row", async () => {
   const first = deferred<import("../api/contracts").NotificationHistoryItem[]>();
   const second = deferred<import("../api/contracts").NotificationHistoryItem[]>();
-  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aiceland" } }) => void) | undefined;
+  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aisland" } }) => void) | undefined;
   let historyQueries = 0;
   const now = Date.now();
   const historyItem = (id: string, title: string, receivedAt: number): import("../api/contracts").NotificationHistoryItem => ({
@@ -824,7 +824,7 @@ test("coalesces burst Windows notification invalidations and displays only the l
 test("does not display or expand for a Windows notification history result that resolves after unmount", async () => {
   const history = deferred<import("../api/contracts").NotificationHistoryItem[]>();
   const unlisten = vi.fn();
-  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aiceland" } }) => void) | undefined;
+  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aisland" } }) => void) | undefined;
   const now = Date.now();
   listenMock.mockImplementation((eventName: string, handler: typeof notificationHistoryChanged) => {
     if (eventName === "notificationHistoryChanged") {
@@ -861,8 +861,8 @@ test("does not display or expand for a Windows notification history result that 
 });
 
 test("does not query or expand for Windows notification invalidations when notification pop-ups are disabled", async () => {
-  localStorage.setItem("aiceland.notifications.popup.v1", "false");
-  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aiceland" } }) => void) | undefined;
+  localStorage.setItem("aisland.notifications.popup.v1", "false");
+  let notificationHistoryChanged: ((event: { payload: { newestReceivedAt: number; origin: "windows" | "aisland" } }) => void) | undefined;
   listenMock.mockImplementation((eventName: string, handler: typeof notificationHistoryChanged) => {
     if (eventName === "notificationHistoryChanged") notificationHistoryChanged = handler;
     return Promise.resolve(vi.fn());
@@ -1107,7 +1107,7 @@ test("keeps the prior confirmed scale active when the native scale transaction r
 });
 
 test("restores and persists glass transparency while updating the shell material", async () => {
-  localStorage.setItem("aiceland.display.glassTransparency.v1", "86");
+  localStorage.setItem("aisland.display.glassTransparency.v1", "86");
   const user = userEvent.setup();
   const { container } = renderShell();
 
@@ -1126,14 +1126,14 @@ test("restores and persists glass transparency while updating the shell material
   expect(canvas?.style.getPropertyValue("--glass-shell-alpha")).toBe("0");
   expect(canvas?.style.getPropertyValue("--glass-panel-alpha")).toBe("0");
   expect(canvas?.style.getPropertyValue("--glass-popover-alpha")).toBe("0");
-  expect(localStorage.getItem("aiceland.display.glassTransparency.v1")).toBe("100");
+  expect(localStorage.getItem("aisland.display.glassTransparency.v1")).toBe("100");
   await waitFor(() => {
     expect(invokeMock).toHaveBeenCalledWith("set_island_glass_transparency", { transparency: 100 });
   });
 });
 
 test("restores and persists the selected production expansion motion", async () => {
-  localStorage.setItem("aiceland.display.expansionMotion.v1", "smooth");
+  localStorage.setItem("aisland.display.expansionMotion.v1", "smooth");
   const user = userEvent.setup();
   const { container } = renderShell();
 
@@ -1154,7 +1154,7 @@ test("restores and persists the selected production expansion motion", async () 
   await user.click(screen.getByRole("button", { name: "快速展开" }));
 
   expect(viewport).toHaveAttribute("data-expansion-motion", "swift");
-  expect(localStorage.getItem("aiceland.display.expansionMotion.v1")).toBe("swift");
+  expect(localStorage.getItem("aisland.display.expansionMotion.v1")).toBe("swift");
 
   await user.click(screen.getByRole("button", { name: "折叠" }));
   await waitFor(() => {

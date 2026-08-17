@@ -47,7 +47,7 @@ let initial: MediaSnapshot;
 let deliverSnapshot: ((snapshot: MediaSnapshot) => void) | undefined;
 
 async function renderMedia(progressTickMs = 1_000) {
-  localStorage.setItem("aiceland.ui.language", "en-US");
+  localStorage.setItem("aisland.ui.language", "en-US");
   const user = vi.isFakeTimers()
     ? userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     : userEvent.setup();

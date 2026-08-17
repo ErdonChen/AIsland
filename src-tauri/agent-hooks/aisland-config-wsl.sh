@@ -30,7 +30,7 @@ case "$action" in
     ;;
   atomic-replace)
     mkdir -p -- "$parent"
-    tmpdir=$(mktemp -d "$parent/.aiceland-config.XXXXXX") || exit 73
+    tmpdir=$(mktemp -d "$parent/.aisland-config.XXXXXX") || exit 73
     tmp="$tmpdir/config"
     trap 'rm -rf -- "$tmpdir"' EXIT HUP INT TERM
     dd bs=65536 count=17 of="$tmp" status=none

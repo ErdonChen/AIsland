@@ -88,7 +88,7 @@ test("keeps a selected local path and draft while backend validation rejects it"
   })));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(screen.getByText("too-large.mp3")).toBeInTheDocument();
-  expect(localStorage.getItem("aiceland.reminders.soundPath")).toBeNull();
+  expect(localStorage.getItem("aisland.reminders.soundPath")).toBeNull();
 });
 
 test("keeps save and delete pending, and preserves a conflicting edit until reload", async () => {

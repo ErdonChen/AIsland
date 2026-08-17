@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 import { I18nProvider, useI18n } from "./I18nProvider";
 
-const LANGUAGE_KEY = "aiceland.ui.language";
+const LANGUAGE_KEY = "aisland.ui.language";
 
 function LanguageProbe() {
   const { language, languageError, languagePending, setLanguage, t } = useI18n();

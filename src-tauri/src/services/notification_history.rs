@@ -26,10 +26,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-pub const AICELAND_REMINDERS_SOURCE_ID: &str = "aicelandReminders";
+pub const AISLAND_REMINDERS_SOURCE_ID: &str = "aislandReminders";
 const WINDOWS_SERVICE_ID: &str = "windowsNotifications";
-const AICELAND_SERVICE_ID: &str = "aicelandReminders";
-const AICELAND_APP_ID: &str = "com.aiceland";
+const AISLAND_SERVICE_ID: &str = "aislandReminders";
+const AISLAND_APP_ID: &str = "com.aisland";
 const BATCH_LIMIT: u32 = 200;
 const MAX_BATCHES_PER_WAKE: usize = 10;
 const SYNC_INTERVAL: Duration = Duration::from_secs(5);
@@ -202,7 +202,7 @@ impl NotificationHistoryService {
             .list(input)?
             .into_iter()
             .map(|mut item| {
-                if item.origin == ContractOrigin::Aiceland {
+                if item.origin == ContractOrigin::AIsland {
                     let message_key = item.message_key.as_deref().ok_or_else(database_failure)?;
                     let rendered = NativeMessageCatalog::render(
                         language,
@@ -235,8 +235,8 @@ impl NotificationWorker {
         self.sync_windows_batch_page(now).map(|(count, _)| count)
     }
 
-    pub fn sync_aiceland_batch(&self, now: i64) -> Result<usize, CommandError> {
-        self.sync_aiceland_batch_page(now).map(|(count, _)| count)
+    pub fn sync_aisland_batch(&self, now: i64) -> Result<usize, CommandError> {
+        self.sync_aisland_batch_page(now).map(|(count, _)| count)
     }
 
     pub async fn run(mut self, mut cancel: tokio::sync::watch::Receiver<bool>) {
@@ -287,11 +287,11 @@ impl NotificationWorker {
                 Err(_) => break,
             }
         }
-        let mut aiceland_has_more = false;
+        let mut aisland_has_more = false;
         for _ in 0..MAX_BATCHES_PER_WAKE {
-            match self.sync_aiceland_batch_page(now) {
+            match self.sync_aisland_batch_page(now) {
                 Ok((_, more)) => {
-                    aiceland_has_more = more;
+                    aisland_has_more = more;
                     if !more {
                         break;
                     }
@@ -299,7 +299,7 @@ impl NotificationWorker {
                 Err(_) => break,
             }
         }
-        if windows_has_more || aiceland_has_more {
+        if windows_has_more || aisland_has_more {
             if let Some(service) = self.service.upgrade() {
                 let _ = service.wake(NotificationSyncWake::TrailingDrain);
             }
@@ -353,12 +353,12 @@ impl NotificationWorker {
         Ok((count, has_more))
     }
 
-    fn sync_aiceland_batch_page(&self, now: i64) -> Result<(usize, bool), CommandError> {
+    fn sync_aisland_batch_page(&self, now: i64) -> Result<(usize, bool), CommandError> {
         if now <= 0 {
             return Err(invalid_input());
         }
         self.ensure_current()?;
-        let cursor = self.notifications.cursor(AICELAND_REMINDERS_SOURCE_ID)?;
+        let cursor = self.notifications.cursor(AISLAND_REMINDERS_SOURCE_ID)?;
         let page = match self.reminders.notification_history_page(
             u64::try_from(cursor.last_row_id).map_err(|_| database_failure())?,
             BATCH_LIMIT,
@@ -367,14 +367,14 @@ impl NotificationWorker {
             Err(error) => {
                 let _side_effect = self.enter_generation()?;
                 self.persist_health(
-                    AICELAND_SERVICE_ID,
+                    AISLAND_SERVICE_ID,
                     ServiceHealthState::Degraded,
                     Some("queryFailed"),
                     now,
                 )?;
                 self.record_diagnostic(
                     SYNC_FAILED_DIAGNOSTIC,
-                    AICELAND_SERVICE_ID,
+                    AISLAND_SERVICE_ID,
                     "queryFailed",
                     0,
                     cursor.last_row_id,
@@ -387,8 +387,8 @@ impl NotificationWorker {
             .deliveries
             .iter()
             .map(|delivery| ImportedNotification {
-                origin: NotificationOrigin::Aiceland,
-                app_id: AICELAND_APP_ID.into(),
+                origin: NotificationOrigin::AIsland,
+                app_id: AISLAND_APP_ID.into(),
                 source_entity_id: delivery.id.clone(),
                 source_row_id: Some(delivery.dispatch_seq),
                 title: None,
@@ -401,16 +401,16 @@ impl NotificationWorker {
             })
             .collect::<Vec<_>>();
         let imported_cursor = NotificationCursor {
-            source_id: AICELAND_REMINDERS_SOURCE_ID.into(),
+            source_id: AISLAND_REMINDERS_SOURCE_ID.into(),
             last_row_id: page.last_dispatch_seq,
             last_updated_at: now,
         };
         let _side_effect = self.enter_generation()?;
         let count = self.notifications.import(&items, imported_cursor, now)?;
-        self.persist_health(AICELAND_SERVICE_ID, ServiceHealthState::Healthy, None, now)?;
+        self.persist_health(AISLAND_SERVICE_ID, ServiceHealthState::Healthy, None, now)?;
         if count > 0 {
             self.emit_after_commit(
-                AICELAND_SERVICE_ID,
+                AISLAND_SERVICE_ID,
                 count as i64,
                 page.last_dispatch_seq,
                 now,
@@ -516,7 +516,7 @@ impl NotificationWorker {
                     now,
                     match source {
                         WINDOWS_SERVICE_ID => "windows",
-                        AICELAND_SERVICE_ID => "aiceland",
+                        AISLAND_SERVICE_ID => "aisland",
                         _ => return,
                     },
                 ),
@@ -933,12 +933,12 @@ mod tests {
             Arc::new(AtomicU64::new(1)),
         );
 
-        assert_eq!(worker.sync_aiceland_batch(100).unwrap(), 1);
-        assert_eq!(worker.sync_aiceland_batch(101).unwrap(), 0);
+        assert_eq!(worker.sync_aisland_batch(100).unwrap(), 1);
+        assert_eq!(worker.sync_aisland_batch(101).unwrap(), 0);
         assert_eq!(
             fixture
                 .notifications
-                .cursor(AICELAND_REMINDERS_SOURCE_ID)
+                .cursor(AISLAND_REMINDERS_SOURCE_ID)
                 .unwrap()
                 .last_row_id,
             1
@@ -967,7 +967,7 @@ mod tests {
     }
 
     #[test]
-    fn retained_aiceland_history_renders_without_a_retained_reminder_row() {
+    fn retained_aisland_history_renders_without_a_retained_reminder_row() {
         let fixture = Fixture::new();
         let delivery_id = Uuid::new_v4().to_string();
         let todo_id = Uuid::new_v4().to_string();
@@ -975,8 +975,8 @@ mod tests {
             .notifications
             .import(
                 &[ImportedNotification {
-                    origin: NotificationOrigin::Aiceland,
-                    app_id: AICELAND_APP_ID.into(),
+                    origin: NotificationOrigin::AIsland,
+                    app_id: AISLAND_APP_ID.into(),
                     source_entity_id: delivery_id.clone(),
                     source_row_id: Some(3),
                     title: None,
@@ -996,7 +996,7 @@ mod tests {
                     received_at: 80,
                 }],
                 NotificationCursor {
-                    source_id: AICELAND_REMINDERS_SOURCE_ID.into(),
+                    source_id: AISLAND_REMINDERS_SOURCE_ID.into(),
                     last_row_id: 3,
                     last_updated_at: 80,
                 },
@@ -1098,7 +1098,7 @@ mod tests {
     }
 
     #[test]
-    fn incompatible_windows_schema_blocks_reprobe_but_does_not_block_aiceland_projection() {
+    fn incompatible_windows_schema_blocks_reprobe_but_does_not_block_aisland_projection() {
         let fixture = Fixture::new();
         enqueue_dispatched_todo(&fixture.reminders);
         let source = ScriptedWpn::new([
@@ -1115,7 +1115,7 @@ mod tests {
         assert!(worker.sync_windows_batch(30).is_err());
         assert_eq!(worker.sync_windows_batch(35).unwrap(), 0);
         assert_eq!(source.calls.load(Ordering::Acquire), 1);
-        assert_eq!(worker.sync_aiceland_batch(40).unwrap(), 1);
+        assert_eq!(worker.sync_aisland_batch(40).unwrap(), 1);
         let health = fixture.health.list().unwrap();
         assert!(health.iter().any(|snapshot| {
             snapshot.service_id == WINDOWS_SERVICE_ID
@@ -1126,7 +1126,7 @@ mod tests {
             .list(all_history())
             .unwrap()
             .iter()
-            .any(|row| row.origin == ContractOrigin::Aiceland));
+            .any(|row| row.origin == ContractOrigin::AIsland));
     }
 
     #[test]

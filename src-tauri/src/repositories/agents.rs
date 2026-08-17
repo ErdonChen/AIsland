@@ -581,7 +581,7 @@ mod tests {
             .all(|row| row.latest_reply_preview.is_none()));
 
         let mut completed = event("reply-event", AgentStatus::Running, 101);
-        completed.message = Some("aiceland-agent-reply-v1:  Latest Agent reply  ".into());
+        completed.message = Some("aisland-agent-reply-v1:  Latest Agent reply  ".into());
         repository
             .insert_event_and_project(&completed, 102)
             .unwrap();

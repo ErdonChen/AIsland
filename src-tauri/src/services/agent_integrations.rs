@@ -247,7 +247,7 @@ impl ConfigFilesystem for LocalConfigFilesystem {
         fs::read(path).map_err(|_| io("read"))
     }
     fn backup_create(&self, path: &Path, now: i64) -> Result<PathBuf, CommandError> {
-        let suffix = format!(".aiceland-backup-{}", timestamp(now));
+        let suffix = format!(".aisland-backup-{}", timestamp(now));
         let backup = PathBuf::from(format!("{}{}", path.display(), suffix));
         self.create_new(&backup, "backupCreate")?;
         Ok(backup)
@@ -264,7 +264,7 @@ impl ConfigFilesystem for LocalConfigFilesystem {
             .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| io("name"))?;
-        let temporary = parent.join(format!(".{name}.aiceland-tmp-{}", unique_nonce()));
+        let temporary = parent.join(format!(".{name}.aisland-tmp-{}", unique_nonce()));
         self.create_new(&temporary, "tempCreate")?;
         Ok(temporary)
     }
@@ -342,7 +342,7 @@ impl ConfigFilesystem for WslConfigFilesystem {
         let backup = PathBuf::from(format!(
             "{}{}",
             path.display(),
-            format!(".aiceland-backup-{}", timestamp(now))
+            format!(".aisland-backup-{}", timestamp(now))
         ));
         self.pending_backups
             .lock()
@@ -374,7 +374,7 @@ impl ConfigFilesystem for WslConfigFilesystem {
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| io("wslTempName"))?;
-        let temporary = parent.join(format!(".{name}.aiceland-tmp-{}", unique_nonce()));
+        let temporary = parent.join(format!(".{name}.aisland-tmp-{}", unique_nonce()));
         self.pending_temps
             .lock()
             .unwrap()
@@ -696,7 +696,7 @@ pub fn fixed_descriptors(
     };
     let wsl_script = |agent: &str| {
         format!(
-            "{}/.local/share/aiceland/agent-hooks/{agent}-wsl.sh",
+            "{}/.local/share/aisland/agent-hooks/{agent}-wsl.sh",
             wsl_home.trim_end_matches('/')
         )
     };
@@ -1257,9 +1257,9 @@ mod tests {
     #[test]
     fn descriptors_use_one_safe_canonical_hook_invocation_per_owned_event() {
         let home = Path::new(r"C:\Users\Alice Smith");
-        let app_data_dir = Path::new(r"C:\Users\Alice Smith\AppData\Roaming\com.aiceland.app");
+        let app_data_dir = Path::new(r"C:\Users\Alice Smith\AppData\Roaming\com.aisland.app");
         let wsl_status_dir =
-            "/mnt/c/Users/Alice Smith/AppData/Roaming/com.aiceland.app/agent-status";
+            "/mnt/c/Users/Alice Smith/AppData/Roaming/com.aisland.app/agent-status";
         let descriptors =
             fixed_descriptors(home, app_data_dir, "/home/alice smith", wsl_status_dir);
         assert_eq!(descriptors.len(), 7);
@@ -1308,7 +1308,7 @@ mod tests {
                     native_event: "Stop".into(),
                     output_path: PathBuf::from(format!("{wsl_status_dir}/codex-wsl.json")),
                 },
-                "/home/alice smith/.local/share/aiceland/agent-hooks/codex-wsl.sh",
+                "/home/alice smith/.local/share/aisland/agent-hooks/codex-wsl.sh",
             )
         );
     }
@@ -1323,9 +1323,9 @@ mod tests {
 
         let descriptors = fixed_descriptors(
             &windows_home,
-            &windows_home.join("AppData/Roaming/com.aiceland.app"),
+            &windows_home.join("AppData/Roaming/com.aisland.app"),
             "/home/ada",
-            "/mnt/c/Users/Ada/AppData/Roaming/com.aiceland.app/agent-status",
+            "/mnt/c/Users/Ada/AppData/Roaming/com.aisland.app/agent-status",
         );
         let hermes = descriptors
             .iter()
@@ -1359,10 +1359,10 @@ mod tests {
             repository,
             diagnostics,
             Path::new(r"C:\Users\Alice"),
-            Path::new(r"C:\Users\Alice\AppData\Roaming\com.aiceland.app"),
+            Path::new(r"C:\Users\Alice\AppData\Roaming\com.aisland.app"),
             "/home/alice",
-            "/mnt/c/Users/Alice/AppData/Roaming/com.aiceland.app/agent-status",
-            "/home/alice/.local/share/aiceland/agent-hooks/aiceland-config-wsl.sh".into(),
+            "/mnt/c/Users/Alice/AppData/Roaming/com.aisland.app/agent-status",
+            "/home/alice/.local/share/aisland/agent-hooks/aisland-config-wsl.sh".into(),
         );
 
         let result = service
@@ -1379,7 +1379,7 @@ mod tests {
 
     #[test]
     fn wsl_backup_uses_one_noclobber_group_for_full_copy_and_flush() {
-        let helper = include_str!("../../agent-hooks/aiceland-config-wsl.sh");
+        let helper = include_str!("../../agent-hooks/aisland-config-wsl.sh");
         let normalized = helper.lines().map(str::trim).collect::<Vec<_>>().join("\n");
         assert!(normalized.contains(
             "( set -C\ncat -- \"$target\" > \"$backup\"\nsync -f \"$backup\" 2>/dev/null || sync\n) 2>/dev/null || exit 65"

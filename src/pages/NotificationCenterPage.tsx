@@ -278,7 +278,7 @@ export default function NotificationCenterPage() {
       </header>
       <div className="notification-filters" aria-label={t("notifications.filter.label")}>
         <div className="notification-origin-filter" role="group" aria-label={t("notifications.filter.origin")}>
-          {(["all", "windows", "aiceland"] as const).map((value) => (
+          {(["all", "windows", "aisland"] as const).map((value) => (
             <button
               type="button"
               key={value}

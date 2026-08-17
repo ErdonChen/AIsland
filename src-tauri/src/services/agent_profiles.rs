@@ -938,7 +938,7 @@ fn spawn_custom_runtime(
         command.current_dir(directory);
     }
     command
-        .env("AICELAND_PROFILE_ADAPTER", "1")
+        .env("AISLAND_PROFILE_ADAPTER", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -2309,7 +2309,7 @@ mod tests {
         let service = AgentProfileService::new(
             repository,
             root.path().join("home"),
-            roaming.join("com.aiceland.app"),
+            roaming.join("com.aisland.app"),
             Arc::new(TestEmitter::default()),
         );
 

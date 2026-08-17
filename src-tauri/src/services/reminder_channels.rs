@@ -251,7 +251,7 @@ trait ColdStartRegistrationPort: Send + Sync {
 }
 
 #[cfg(windows)]
-const TOAST_AUMID: &str = "com.aiceland.app";
+const TOAST_AUMID: &str = "com.aisland.app";
 #[cfg(windows)]
 const TOAST_ACTIVATOR_CLSID_TEXT: &str = "{8A3824C5-5A7D-4D59-BF04-2C19C43B6F9A}";
 
@@ -398,7 +398,7 @@ impl ColdStartRegistrationPort for WindowsColdStartRegistrationPort {
         std::fs::create_dir_all(&folder).map_err(|_| ChannelFailure {
             code: "toastRegistrationFailed",
         })?;
-        let shortcut = folder.join("AIceLand.lnk");
+        let shortcut = folder.join("AIsland.lnk");
         let exe_wide = wide(executable);
         let shortcut_wide = wide(&shortcut.to_string_lossy());
         let shell_link = windows::core::GUID::from_u128(0x00021401_0000_0000_c000_000000000046);
@@ -671,7 +671,7 @@ impl WindowsToastReminderChannel {
         // Stable packaged identity: Tag/Group are the durable delivery UUID so retries replace
         // the prior toast instead of stacking a second notification.
         Self {
-            aumid: "com.aiceland.app".into(),
+            aumid: "com.aisland.app".into(),
             activation,
             health: Arc::new(NoopNotificationHealthPort),
             registration: Arc::new(ToastRegistrationState::default()),
@@ -695,7 +695,7 @@ impl WindowsToastReminderChannel {
         registration: Arc<ToastRegistrationState>,
     ) -> Self {
         Self {
-            aumid: "com.aiceland.app".into(),
+            aumid: "com.aisland.app".into(),
             activation,
             health,
             registration,
@@ -1019,7 +1019,7 @@ impl ToastActivationHandler for ToastActivationRouter {
             self.emitter.as_ref(),
         ) {
             log::error!(
-                target: "aiceland::reminders",
+                target: "aisland::reminders",
                 "toast_activation status=failed error={}",
                 error.message_key
             );
@@ -1770,8 +1770,8 @@ mod tests {
     #[test]
     fn local_server_command_quotes_a_space_containing_executable_without_backslashes() {
         assert_eq!(
-            local_server_command(r"C:\Program Files\AIceLand\aiceland.exe"),
-            r#""C:\Program Files\AIceLand\aiceland.exe""#
+            local_server_command(r"C:\Program Files\AIsland\aisland.exe"),
+            r#""C:\Program Files\AIsland\aisland.exe""#
         );
     }
 
@@ -1788,7 +1788,7 @@ mod tests {
             "--nocapture",
         ])
         .env("APPDATA", app_data.path())
-        .env("AICELAND_TEST_SHORTCUT_CHILD", "1")
+        .env("AISLAND_TEST_SHORTCUT_CHILD", "1")
         .status()
         .expect("shortcut installation child starts");
 
@@ -1799,7 +1799,7 @@ mod tests {
         assert!(
             app_data
                 .path()
-                .join("Microsoft/Windows/Start Menu/Programs/AIceLand.lnk")
+                .join("Microsoft/Windows/Start Menu/Programs/AIsland.lnk")
                 .is_file(),
             "the isolated shortcut must be committed"
         );
@@ -1808,7 +1808,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn windows_shortcut_installation_child() {
-        if std::env::var_os("AICELAND_TEST_SHORTCUT_CHILD").is_none() {
+        if std::env::var_os("AISLAND_TEST_SHORTCUT_CHILD").is_none() {
             return;
         }
 
@@ -1846,7 +1846,7 @@ mod tests {
         impl ColdStartRegistrationPort for RecordingRegistrationPort {
             fn current_executable(&self) -> Result<String, ChannelFailure> {
                 self.calls.lock().unwrap().push("currentExe".into());
-                Ok(r"C:\Program Files\AIceLand\aiceland.exe".into())
+                Ok(r"C:\Program Files\AIsland\aisland.exe".into())
             }
 
             fn write_local_server32(&self, command: &str) -> Result<(), ChannelFailure> {
@@ -1862,7 +1862,7 @@ mod tests {
                 aumid: &str,
                 clsid: &str,
             ) -> Result<(), ChannelFailure> {
-                assert_eq!(executable, r"C:\Program Files\AIceLand\aiceland.exe");
+                assert_eq!(executable, r"C:\Program Files\AIsland\aisland.exe");
                 self.calls
                     .lock()
                     .unwrap()
@@ -1897,8 +1897,8 @@ mod tests {
             *port.calls.lock().unwrap(),
             vec![
                 String::from("currentExe"),
-                String::from(r#"registry:"C:\Program Files\AIceLand\aiceland.exe""#),
-                String::from("shortcut:com.aiceland.app:{8A3824C5-5A7D-4D59-BF04-2C19C43B6F9A}"),
+                String::from(r#"registry:"C:\Program Files\AIsland\aisland.exe""#),
+                String::from("shortcut:com.aisland.app:{8A3824C5-5A7D-4D59-BF04-2C19C43B6F9A}"),
                 String::from("class"),
             ],
         );
@@ -1919,8 +1919,8 @@ mod tests {
             *failed.calls.lock().unwrap(),
             vec![
                 String::from("currentExe"),
-                String::from(r#"registry:"C:\Program Files\AIceLand\aiceland.exe""#),
-                String::from("shortcut:com.aiceland.app:{8A3824C5-5A7D-4D59-BF04-2C19C43B6F9A}"),
+                String::from(r#"registry:"C:\Program Files\AIsland\aisland.exe""#),
+                String::from("shortcut:com.aisland.app:{8A3824C5-5A7D-4D59-BF04-2C19C43B6F9A}"),
                 String::from("class"),
             ],
         );
@@ -1943,10 +1943,10 @@ mod tests {
     fn toast_xml_uses_the_schema_valid_silent_audio_child() {
         let (_temp, _storage, repository) = repository();
         let delivery = delivery(&repository);
-        let xml = toast_xml(&delivery, "AIceLand reminder", "Body");
+        let xml = toast_xml(&delivery, "AIsland reminder", "Body");
 
         assert!(xml.starts_with(&format!("<toast launch=\"{}\">", delivery.id)));
-        assert!(xml.contains("<text>AIceLand reminder</text><text>Body</text>"));
+        assert!(xml.contains("<text>AIsland reminder</text><text>Body</text>"));
         assert!(xml.contains("</visual><audio silent=\"true\"/></toast>"));
     }
 

@@ -642,7 +642,7 @@ pub fn start_message_listener(
             }
         };
         CLIPBOARD_CALLBACK.with(|slot| *slot.borrow_mut() = Some(callback));
-        let class_name = w!("AIceLandClipboardMessageWindow");
+        let class_name = w!("AIslandClipboardMessageWindow");
         let window_class = WNDCLASSW {
             lpfnWndProc: Some(clipboard_window_proc),
             lpszClassName: class_name,
@@ -655,7 +655,7 @@ pub fn start_message_listener(
             CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
                 class_name,
-                w!("AIceLandClipboardMessageWindow"),
+                w!("AIslandClipboardMessageWindow"),
                 WINDOW_STYLE::default(),
                 0,
                 0,

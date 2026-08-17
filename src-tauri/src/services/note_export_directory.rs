@@ -23,7 +23,7 @@ fn default_directory_from_profile(profile: Option<PathBuf>) -> Result<PathBuf, C
             details: SafeMessageParameters::new(),
             retryable: false,
         })?;
-    let directory = profile.join("Documents").join("AIceLand");
+    let directory = profile.join("Documents").join("AIsland");
     fs::create_dir_all(&directory).map_err(|_| io_failure())?;
     directory.canonicalize().map_err(|_| io_failure())
 }
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn export_default_directory_creates_and_canonicalizes_the_bootstrap_folder() {
         let profile = tempfile::tempdir().unwrap();
-        let expected = profile.path().join("Documents").join("AIceLand");
+        let expected = profile.path().join("Documents").join("AIsland");
 
         let actual = default_directory_from_profile(Some(profile.path().to_path_buf())).unwrap();
 

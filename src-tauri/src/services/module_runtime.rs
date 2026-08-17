@@ -394,7 +394,7 @@ fn registered_native_worker(
     let (cancel_tx, cancel_rx) = std::sync::mpsc::channel();
     let (completion_tx, completion_rx) = tokio::sync::watch::channel(None);
     let join = std::thread::Builder::new()
-        .name(format!("aiceland-{name}-owner"))
+        .name(format!("aisland-{name}-owner"))
         .spawn(move || {
             let _ = cancel_rx.recv();
             let result = stop();

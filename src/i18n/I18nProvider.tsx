@@ -17,7 +17,7 @@ import {
   type UiLanguage,
 } from "./catalog";
 
-const LANGUAGE_STORAGE_KEY = "aiceland.ui.language";
+const LANGUAGE_STORAGE_KEY = "aisland.ui.language";
 
 export type I18nContextValue = {
   language: UiLanguage;

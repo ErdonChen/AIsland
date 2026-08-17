@@ -506,10 +506,10 @@ button.agent-profile-card:hover, .agent-profile-card:hover { border-color: rgba(
 .notification-card { position: relative; min-width: 0; display: grid; gap: 5px; padding: 8px 9px 8px 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(255,255,255,.045); }
 .notification-card--unread { background: rgba(55,138,221,.09); }
 .notification-card__rail { position: absolute; inset: 0 auto 0 0; width: 3px; background: #5eb8ff; }
-.notification-card--aiceland .notification-card__rail { background: #8ad6ad; }
+.notification-card--aisland .notification-card__rail { background: #8ad6ad; }
 .notification-card__header { min-width: 0; display: grid; grid-template-columns: auto minmax(0,1fr) auto auto auto; align-items: center; gap: 6px; }
 .notification-card__origin { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; color: #d9ebff; background: rgba(94,184,255,.2); font: 600 10px "Cascadia Code", Consolas, monospace; }
-.notification-card__origin[data-origin="aiceland"] { color: #d5f7e3; background: rgba(138,214,173,.18); }
+.notification-card__origin[data-origin="aisland"] { color: #d5f7e3; background: rgba(138,214,173,.18); }
 .notification-card__app { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.68); font-size: 10px; }
 .notification-card time { white-space: nowrap; color: rgba(255,255,255,.48); font-size: 9px; font-variant-numeric: tabular-nums; }
 .notification-card__read-state { color: rgba(255,255,255,.52); font-size: 9px; }

@@ -21,11 +21,11 @@ import StatusDot from "./StatusDot";
 import { AGENT_STATUS_COLOR } from "./agentStatusPresentation";
 import type { InitialState, IslandExpansionMotion, IslandMode, IslandPage } from "../types";
 
-const SCALE_KEY = "aiceland.window.scale";
-const GLASS_TRANSPARENCY_KEY = "aiceland.display.glassTransparency.v1";
-const EXPANSION_MOTION_KEY = "aiceland.display.expansionMotion.v1";
-const COMPACT_WINDOW_KEY = "aiceland.display.compactWindow.v1";
-const NOTIFICATION_POPUP_KEY = "aiceland.notifications.popup.v1";
+const SCALE_KEY = "aisland.window.scale";
+const GLASS_TRANSPARENCY_KEY = "aisland.display.glassTransparency.v1";
+const EXPANSION_MOTION_KEY = "aisland.display.expansionMotion.v1";
+const COMPACT_WINDOW_KEY = "aisland.display.compactWindow.v1";
+const NOTIFICATION_POPUP_KEY = "aisland.notifications.popup.v1";
 const DEFAULT_GLASS_TRANSPARENCY = 58;
 const COMPACT_EXPAND_DELAY_MS = 140;
 const COMPACT_COLLAPSE_DELAY_MS = 280;
@@ -650,7 +650,7 @@ export default function IslandShell() {
         if (!active) return;
 
         if (initial.rasterizationError) {
-          console.warn("AIceLand rasterization fallback", initial.rasterizationError);
+          console.warn("AIsland rasterization fallback", initial.rasterizationError);
         }
 
         setMode(initial.mode);

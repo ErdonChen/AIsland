@@ -730,7 +730,7 @@ export default function SettingsView({
               <button
                 type="button"
                 className="settings-choice settings-about__action"
-                onClick={() => void invoke("open_aiceland_github")}
+                onClick={() => void invoke("open_aisland_github")}
               >
                 {t("settings.openGithub")}
               </button>

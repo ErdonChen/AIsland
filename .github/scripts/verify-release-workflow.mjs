@@ -14,6 +14,7 @@ test("the Windows release workflow fails closed and keeps verified updater asset
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /publish:\s*\n(?:\s+.*\n)*?\s+type:\s*boolean(?:\s*\n(?:\s+.*\n)*?\s+default:\s*false)?/);
   assert.match(workflow, /contents:\s*write/);
+  assert.match(workflow, /verify-brand-name\.mjs/);
   assert.match(workflow, /package\.json/);
   assert.match(workflow, /src-tauri[\\/]tauri\.conf\.json/);
   assert.match(workflow, /src-tauri[\\/]Cargo\.toml/);
@@ -28,9 +29,10 @@ test("the Windows release workflow fails closed and keeps verified updater asset
   assert.match(workflow, /uploadUpdaterSignatures:\s*true/);
   assert.match(workflow, /updaterJsonPreferNsis:\s*true/);
   assert.match(workflow, /releaseName:\s*AIsland v__VERSION__/);
+  assert.match(workflow, /AIsland_\$\(\$env:APP_VERSION\)_x64-setup\.exe/);
   assert.match(workflow, /--bundles nsis/);
   assert.match(workflow, /latest\.json/);
-  assert.match(workflow, /\.exe\.sig/);
+  assert.match(workflow, /\$expectedInstallerName\.sig/);
   assert.match(workflow, /Get-AuthenticodeSignature/);
   assert.match(workflow, /SignatureStatus\]::Valid/);
   assert.match(workflow, /TimeStamperCertificate/);

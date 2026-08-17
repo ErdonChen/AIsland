@@ -17,7 +17,7 @@ signatures do not replace Authenticode.
 1. Generate a password-protected Tauri updater key pair on a trusted machine:
 
    ```powershell
-   pnpm tauri signer generate -w "$env:USERPROFILE\.tauri\aiceland.key"
+   pnpm tauri signer generate -w "$env:USERPROFILE\.tauri\aisland.key"
    ```
 
 2. Keep the private key and its password outside the repository. Add their
