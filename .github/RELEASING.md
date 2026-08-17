@@ -6,10 +6,11 @@ The workflow accepts only an existing `v<semver>` tag whose version matches
 
 This workflow is only for stable, Authenticode-signed releases. A narrowly
 scoped unsigned installer may be published for technical testing by following
-`docs/unsigned-preview-release.md`. It must use a `preview-v*` tag, remain a
-GitHub Pre-release, and stay outside the stable updater channel. Never weaken
-this signed workflow to publish an unsigned preview. Tauri updater signatures
-do not replace Authenticode.
+`docs/unsigned-preview-release.md` and the separate manual workflow at
+`.github/workflows/release-windows-preview.yml`. It must use a `preview-v*`
+tag, remain a GitHub Pre-release, and stay outside the stable updater channel.
+Never weaken this signed workflow to publish an unsigned preview. Tauri updater
+signatures do not replace Authenticode.
 
 ## One-time repository setup
 

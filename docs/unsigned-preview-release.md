@@ -4,7 +4,7 @@ This runbook is the only approved path for publishing an unsigned AIsland instal
 
 ## Non-negotiable boundaries
 
-- Build from a clean checkout of the public repository on Windows.
+- Build from a clean checkout of the public repository on the GitHub-hosted Windows runner.
 - Use a tag named `preview-v<app-version>.<iteration>`, such as `preview-v0.1.0.1`. Do not use a tag beginning with `v`; `v*` is reserved for the signed release workflow.
 - Publish the GitHub release as a Pre-release and never as `Latest`.
 - Put `Unsigned Preview` in the release title and lead the release notes with the warning template below.
@@ -13,7 +13,37 @@ This runbook is the only approved path for publishing an unsigned AIsland instal
 - Do not set `AUTHENTICODE_RELEASE_ENABLED=true` and do not edit or bypass `.github/workflows/release-windows.yml`.
 - Do not tell users to disable Microsoft Defender or SmartScreen.
 
-## Windows operator checklist
+## GitHub Actions release from macOS
+
+The approved default path is the manual workflow at `.github/workflows/release-windows-preview.yml`. The workflow must first be merged into the default branch. Your Mac only triggers and monitors the run; GitHub's `windows-2022` runner performs the tests, NSIS build, Authenticode status check, checksum generation, upload, and download verification.
+
+From the repository on macOS, authenticate `gh`, update `main`, and start the first preview:
+
+```bash
+gh auth status
+git switch main
+git pull --ff-only origin main
+gh workflow run release-windows-preview.yml \
+  --repo ErdonChen/AIsland \
+  --ref main \
+  -f tag=preview-v0.1.0.1 \
+  -f publish=true
+```
+
+Find and watch the run:
+
+```bash
+gh run list --repo ErdonChen/AIsland --workflow release-windows-preview.yml --limit 1
+gh run watch --repo ErdonChen/AIsland
+```
+
+Use a new positive iteration for every attempt that reaches release creation, for example `preview-v0.1.0.2`. The tag's application version must match `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
+
+Set `publish=false` when you want the workflow to leave a verified draft for manual review. Set `publish=true` only when the same run should publish the verified GitHub Pre-release. In both cases, the workflow creates exactly two uploaded assets: the NSIS setup executable and `SHA256SUMS.txt`.
+
+## Local Windows fallback checklist
+
+Use this only if GitHub Actions is unavailable.
 
 1. Install the Windows prerequisites listed in the README: Node.js, Rust stable MSVC, Microsoft C++ Build Tools, and WebView2.
 2. Check out the exact public source commit that will be released. Confirm `git status --short` is empty and record `git rev-parse HEAD`.
@@ -84,18 +114,21 @@ trusted publisher signature. Verify that the download URL is under
 deciding whether to run it.
 ```
 
-## Prompt for the Windows PC agent
+## Prompt for the macOS release agent
 
-Copy the prompt below to the agent running on the Windows PC:
+Copy the prompt below to an agent running on the Mac after the workflow is merged into `main`:
 
 ```text
-你正在 Windows PC 上为 https://github.com/ErdonChen/AIsland 制作一个“未签名技术预览版”。
+你正在 macOS 上通过 GitHub Actions 为 https://github.com/ErdonChen/AIsland
+发布一个“未签名技术预览版”。
 开始前完整阅读并严格遵守仓库中的 docs/unsigned-preview-release.md、
-docs/code-signing.md 和 .github/RELEASING.md。
+docs/code-signing.md、.github/RELEASING.md 和
+.github/workflows/release-windows-preview.yml。
 
-目标：从干净的公开源码提交构建唯一一个 NSIS 安装包，运行前端与 Rust 测试，确认
-Get-AuthenticodeSignature 的状态恰好为 NotSigned，生成 SHA256SUMS.txt，然后在 GitHub
-创建 Pre-release 并上传这两个文件。
+目标：在确认工作流已经合并到 main 后，从 Mac 手动触发
+release-windows-preview.yml。由 GitHub 的 windows-2022 runner 从 main 的确定提交构建
+唯一一个 NSIS 安装包，运行前端与 Rust 测试，确认 Get-AuthenticodeSignature 的状态
+恰好为 NotSigned，生成 SHA256SUMS.txt，然后创建 GitHub Pre-release 并上传这两个文件。
 
 硬性限制：
 1. 使用 preview-v<应用版本>.<序号> 标签，标签不得以 v 开头。
@@ -105,10 +138,11 @@ Get-AuthenticodeSignature 的状态恰好为 NotSigned，生成 SHA256SUMS.txt�
 5. 不得设置 AUTHENTICODE_RELEASE_ENABLED=true，不得修改或绕过
    .github/workflows/release-windows.yml。
 6. 不得声称安装包已获 Microsoft 信任，不得让用户关闭 Defender 或 SmartScreen。
-7. 构建、测试、签名状态、文件数量、哈希或公开下载后的复验有任何一项不符合，立即停止，
+7. 使用 gh workflow run 从 main 触发，并监控到整个工作流结束。不得在本机伪造构建结果。
+8. 构建、测试、签名状态、文件数量、哈希或公开下载后的复验有任何一项不符合，立即停止，
    不要发布，并向我报告具体错误。
 
-发布前先向我展示：源提交 SHA、测试结果、安装包完整路径、文件大小、Authenticode 状态、
-SHA-256、准备使用的标签和完整 Release notes。得到我明确确认后才能创建并公开 Release。
-发布后重新从公开 Release 下载资产并复验 SHA-256，最后把 Release 链接和复验结果交给我。
+触发前先向我展示：main 的源提交 SHA、准备使用的 preview-v 标签和 publish 输入值。
+得到我明确确认后才能以 publish=true 触发。完成后把 Actions run 链接、Release 链接、
+测试结果、Authenticode 状态、资产清单和公开下载复验的 SHA-256 结果交给我。
 ```
