@@ -104,7 +104,12 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked
 
       - name: Build the unsigned NSIS installer
-        run: pnpm tauri build --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        shell: pwsh
+        run: |
+          $previewConfig = Join-Path $env:RUNNER_TEMP "tauri-unsigned-preview.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' |
+            Set-Content -LiteralPath $previewConfig -Encoding utf8NoBOM
+          pnpm tauri build --bundles nsis --config $previewConfig
 
       - name: Verify the unsigned installer and generate its checksum
         shell: pwsh
