@@ -1703,16 +1703,31 @@ fn set_island_scale(app: AppHandle, scale: f64) -> Result<(), String> {
     )
 }
 
+fn apply_native_window_material(
+    material: NativeWindowMaterial,
+    apply_material: impl FnOnce(NativeWindowMaterial) -> Result<(), String>,
+    enforce_borderless: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    apply_material(material)?;
+    enforce_borderless()
+}
+
 fn apply_island_glass_transparency(
     window: &WebviewWindow,
     transparency: i32,
 ) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        match native_window_material_for_glass_transparency(transparency) {
-            NativeWindowMaterial::Clear => window_vibrancy::clear_acrylic(window),
-        }
-        .map_err(|error| error.to_string())
+        apply_native_window_material(
+            native_window_material_for_glass_transparency(transparency),
+            |material| {
+                match material {
+                    NativeWindowMaterial::Clear => window_vibrancy::clear_acrylic(window),
+                }
+                .map_err(|error| error.to_string())
+            },
+            || enforce_borderless_window(window),
+        )
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -2404,7 +2419,7 @@ mod native_language_tests {
 #[cfg(test)]
 mod main_window_chrome_tests {
     use super::*;
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
 
     struct DecorationSpy(Cell<usize>);
 
@@ -2422,6 +2437,26 @@ mod main_window_chrome_tests {
         enforce_borderless_window(&spy).unwrap();
 
         assert_eq!(spy.0.get(), 1);
+    }
+
+    #[test]
+    fn glass_transparency_reasserts_borderless_after_native_material_change() {
+        let calls = RefCell::new(Vec::new());
+
+        apply_native_window_material(
+            NativeWindowMaterial::Clear,
+            |_| {
+                calls.borrow_mut().push("material");
+                Ok(())
+            },
+            || {
+                calls.borrow_mut().push("borderless");
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(*calls.borrow(), ["material", "borderless"]);
     }
 }
 
