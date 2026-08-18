@@ -624,8 +624,59 @@ fn enforce_borderless_window(window: &impl WindowDecorationPort) -> Result<(), S
     window.set_borderless()
 }
 
+/// Windows 无边框窗口的底层保险：subclass 窗口过程，拦截系统非客户区消息，
+/// 阻止 DWM 在激活/失焦/尺寸变化时重新绘制原生标题栏与边框。
+/// `window_vibrancy` 的 DwmExtendFrameIntoClientArea 会让 DWM 认为窗口仍有
+/// 可绘制的 frame，仅靠 set_decorations(false) 清样式压不住运行时的 chrome 复活。
+#[cfg(target_os = "windows")]
+mod borderless_chrome {
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
+    use windows::Win32::UI::WindowsAndMessaging::{WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCPAINT};
+
+    const BORDERLESS_SUBCLASS_ID: usize = 0x4153_4C44; // "ASLD"
+
+    unsafe extern "system" fn borderless_subclass_proc(
+        window: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _subclass_id: usize,
+        _reference_data: usize,
+    ) -> LRESULT {
+        match message {
+            // 客户区占满整个窗口区域，不给系统留非客户区
+            WM_NCCALCSIZE if wparam.0 != 0 => LRESULT(0),
+            // 激活/失焦时不再重绘标准标题栏
+            WM_NCACTIVATE => LRESULT(1),
+            // 吞掉非客户区绘制请求
+            WM_NCPAINT => LRESULT(0),
+            _ => unsafe { DefSubclassProc(window, message, wparam, lparam) },
+        }
+    }
+
+    pub fn install(window: &tauri::WebviewWindow) -> Result<(), String> {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        let installed = unsafe {
+            SetWindowSubclass(
+                hwnd,
+                Some(borderless_subclass_proc),
+                BORDERLESS_SUBCLASS_ID,
+                0,
+            )
+        };
+        if installed.as_bool() {
+            Ok(())
+        } else {
+            Err("SetWindowSubclass failed for main window".to_string())
+        }
+    }
+}
+
 fn show_borderless_window(window: &WebviewWindow) -> Result<(), String> {
     enforce_borderless_window(window)?;
+    #[cfg(target_os = "windows")]
+    borderless_chrome::install(window)?;
     window.show().map_err(|error| error.to_string())
 }
 
@@ -1615,6 +1666,18 @@ impl ApplicationLifecycleActions for TauriApplicationLifecycleActions<'_> {
     }
 }
 
+fn reassert_borderless_for_main_window(app: &AppHandle, trigger: &str) {
+    let Some(webview) = app.get_webview_window(WINDOW_LABEL) else {
+        return;
+    };
+    if let Err(error) = enforce_borderless_window(&webview) {
+        log::error!(
+            target: "aisland::window",
+            "window_chrome action=reassert_borderless trigger={trigger} error={error}"
+        );
+    }
+}
+
 fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     match event {
         WindowEvent::CloseRequested { api, .. } if window.label() == WINDOW_LABEL => {
@@ -1664,12 +1727,20 @@ fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
             }
         }
         WindowEvent::ScaleFactorChanged { .. } if window.label() == WINDOW_LABEL => {
+            reassert_borderless_for_main_window(window.app_handle(), "scale_factor_changed");
             if let Ok(mut state) = dpi_retry_state().lock() {
                 state.note_dpi_event();
             }
             if let Some(webview) = window.app_handle().get_webview_window(WINDOW_LABEL) {
                 schedule_geometry_after_rasterization(webview);
             }
+        }
+        WindowEvent::Focused(focused) if window.label() == WINDOW_LABEL => {
+            let trigger = if *focused { "focused" } else { "focus_lost" };
+            reassert_borderless_for_main_window(window.app_handle(), trigger);
+        }
+        WindowEvent::Resized(_) if window.label() == WINDOW_LABEL => {
+            reassert_borderless_for_main_window(window.app_handle(), "resized");
         }
         _ => {}
     }

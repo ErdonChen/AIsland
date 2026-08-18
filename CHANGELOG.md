@@ -15,6 +15,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Public repository and updater links now use `ErdonChen/AIsland`.
 
+## [0.1.0-preview.4] - 2026-08-18
+
+### Fixed
+
+- Fixed a transparent-window bug where focusing the desktop or changing display scaling, then clicking the island, could restore the native Windows title bar and borders. The main window now intercepts `WM_NCCALCSIZE` / `WM_NCACTIVATE` / `WM_NCPAINT` through a window-procedure subclass and reasserts the borderless style on focus, resize, and DPI events. See `docs/fix-transparent-window-chrome.md` for the full investigation.
+
 ## [0.1.0-preview.3] - 2026-08-17
 
 ### Fixed

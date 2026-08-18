@@ -160,7 +160,7 @@ jobs:
             "",
             "## Fixed",
             "",
-            "- Fixed a transparent-window bug where changing glass transparency could restore the native Windows title bar and window controls.",
+            "- Fixed a transparent-window bug where focusing the desktop or changing display scaling, then clicking the island, could restore the native Windows title bar and borders. The fix subclasses the main window procedure to intercept non-client drawing messages and reasserts the borderless style on focus, resize, and DPI events.",
             "",
             "## Build provenance",
             "",
