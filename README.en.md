@@ -25,7 +25,7 @@ AIsland is a floating Windows desktop app that keeps several AI agents in one pl
 
 The window stays compact when you do not need it and expands when you want more detail. AIsland also includes Windows notifications, daily Markdown notes, clipboard history, and system monitoring.
 
-https://github.com/user-attachments/assets/faeef743-5b6f-4357-9d71-ef28cfe4acdb
+https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e
 
 ## Starship view
 
