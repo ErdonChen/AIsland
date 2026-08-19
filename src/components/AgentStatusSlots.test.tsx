@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import type { AgentProfileStatusSummary, AgentSummary } from "../api/contracts";
 import { I18nProvider } from "../i18n/I18nProvider";
-import { prioritizedAgentStatuses, visibleAgentSummaries } from "./AgentStatusSlots";
+import { prioritizedAgentStatuses, visibleAgentCapacityForWidth, visibleAgentSummaries } from "./AgentStatusSlots";
 import { AGENT_STATUS_COLOR } from "./agentStatusPresentation";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
@@ -43,6 +43,64 @@ const profileSummaries: AgentProfileStatusSummary[] = [
     observations: [{ profileId: "qoderwork-windows", environment: "windows", taskId: "task-2", status: "running", sourceEventId: "qoder-event-1", occurredAt: 2, receivedAt: 2 }],
   },
 ];
+
+const responsiveProfileSummaries: AgentProfileStatusSummary[] = Array.from({ length: 9 }, (_, index) => {
+  const status = index < 2 ? "waiting" : index < 5 ? "running" : "idle";
+  return {
+    profile: {
+      ...profileSummaries[0].profile,
+      id: `responsive-${index}`,
+      displayName: `Responsive ${index}`,
+    },
+    aggregateStatus: status,
+    observations: [{
+      profileId: `responsive-${index}`,
+      environment: "windows",
+      taskId: `task-${index}`,
+      status,
+      sourceEventId: `event-${index}`,
+      occurredAt: index,
+      receivedAt: index,
+    }],
+  };
+});
+
+test("adapts Agent capacity across narrow, medium, and wide capsules without adding fields", async () => {
+  expect(visibleAgentCapacityForWidth(248)).toBe(4);
+  expect(visibleAgentCapacityForWidth(420)).toBe(9);
+  expect(visibleAgentCapacityForWidth(720)).toBeGreaterThanOrEqual(9);
+
+  const componentPath = "./AgentStatusSlots";
+  const { default: AgentStatusSlots } = await import(componentPath);
+  const view = render(
+    <I18nProvider>
+      <AgentStatusSlots agents={[]} profileSummaries={responsiveProfileSummaries} compactWidth={248} onOpenAgent={vi.fn()} />
+    </I18nProvider>,
+  );
+
+  expect(screen.getAllByTestId("agent-gui-logo")).toHaveLength(4);
+  expect(screen.getByText("+5")).toBeInTheDocument();
+  expect(screen.queryByText(/^▶/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/^!/)).not.toBeInTheDocument();
+  expect(screen.getByText("工作中")).toBeInTheDocument();
+  expect(screen.queryByText("Responsive 0")).not.toBeInTheDocument();
+
+  view.rerender(
+    <I18nProvider>
+      <AgentStatusSlots agents={[]} profileSummaries={responsiveProfileSummaries} compactWidth={420} onOpenAgent={vi.fn()} />
+    </I18nProvider>,
+  );
+  expect(screen.getAllByTestId("agent-gui-logo")).toHaveLength(9);
+  expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
+
+  view.rerender(
+    <I18nProvider>
+      <AgentStatusSlots agents={[]} profileSummaries={responsiveProfileSummaries} compactWidth={720} onOpenAgent={vi.fn()} />
+    </I18nProvider>,
+  );
+  expect(screen.getAllByTestId("agent-gui-logo")).toHaveLength(9);
+  expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
+});
 
 test("compact window shows every Agent as a GUI logo with one working-or-idle summary", async () => {
   const componentPath = "./AgentStatusSlots";

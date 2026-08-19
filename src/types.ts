@@ -12,6 +12,8 @@ export type InitialState = {
   scale: number;
   dpi: number;
   mode: IslandMode;
+  collapsedWidth: number;
+  expandedWidth: number;
   expandedHeight: number;
   tucked: boolean;
   rasterizationError: string | null;

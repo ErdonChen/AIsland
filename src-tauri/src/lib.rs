@@ -13,10 +13,11 @@ mod window;
 use crate::services::AppServices;
 use crate::window::{
     animation_frame_times_for, animation_generation_is_current, clamp_scale,
-    eased_window_frame_with_spec, handle_application_lifecycle_event, logical_size_for_state,
-    native_window_material_for_glass_transparency, physical_corner_radius, safe_restore_y_physical,
-    should_tuck_physical, top_center_physical, tucked_y_physical, window_animation_spec,
-    ApplicationLifecycleActions, ApplicationLifecycleEvent, IslandMode, IslandWindowState,
+    clamp_width_to_work_area, eased_window_frame_with_spec, handle_application_lifecycle_event,
+    logical_size_for_state, native_window_material_for_glass_transparency, physical_corner_radius,
+    resized_x_for_fixed_edge, safe_restore_y_physical, should_tuck_physical, top_center_physical,
+    tucked_y_physical, window_animation_spec, ApplicationLifecycleActions,
+    ApplicationLifecycleEvent, FixedHorizontalEdge, IslandMode, IslandWindowState,
     NativeWindowMaterial, PhysicalPoint, PhysicalWindowFrame, SavedPlacement, WindowAnimationSpec,
     DEFAULT_EXPANDED_HEIGHT, MAX_EXPANDED_HEIGHT,
 };
@@ -270,6 +271,12 @@ struct PhysicalGeometrySnapshot {
     position: PhysicalPoint,
     width: u32,
     height: u32,
+}
+
+#[derive(Clone, Copy)]
+struct PhysicalWorkArea {
+    x: i32,
+    width: u32,
 }
 
 #[derive(Clone, Copy)]
@@ -712,6 +719,43 @@ fn snapshot_physical_geometry(window: &WebviewWindow) -> Result<PhysicalGeometry
         },
         width: size.width,
         height: size.height,
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn work_area_for_window(window: &WebviewWindow) -> Result<PhysicalWorkArea, String> {
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+    let mut info = MONITORINFO {
+        cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    if !unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
+        return Err(format!(
+            "monitor_work_area stage=query error={}",
+            windows_core::Error::from_win32()
+        ));
+    }
+    Ok(PhysicalWorkArea {
+        x: info.rcWork.left,
+        width: info.rcWork.right.saturating_sub(info.rcWork.left) as u32,
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn work_area_for_window(window: &WebviewWindow) -> Result<PhysicalWorkArea, String> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|error| error.to_string())?
+        .or_else(|| window.primary_monitor().ok().flatten())
+        .ok_or_else(|| "monitor not found".to_string())?;
+    Ok(PhysicalWorkArea {
+        x: monitor.position().x,
+        width: monitor.size().width,
     })
 }
 
@@ -1181,6 +1225,87 @@ where
     )
 }
 
+fn transition_window_width(
+    app: &AppHandle,
+    target_mode: IslandMode,
+    requested_width: f64,
+    fixed_edge: FixedHorizontalEdge,
+) -> Result<f64, String> {
+    let _transition = state_transition().lock().map_err(|_| {
+        "state_transition field=width stage=serialize error=lock_poisoned".to_string()
+    })?;
+    let window = main_window(app)
+        .map_err(|error| format!("state_transition field=width stage=window error={error}"))?;
+    let original_geometry = snapshot_physical_geometry(&window).map_err(|error| {
+        format!("state_transition field=width stage=geometry_snapshot error={error}")
+    })?;
+    let old = state_snapshot()
+        .map_err(|error| format!("state_transition field=width stage=snapshot error={error}"))?;
+    let work_area = work_area_for_window(&window)?;
+    let dpi = window.scale_factor().map_err(|error| error.to_string())?;
+    let width = clamp_width_to_work_area(
+        target_mode,
+        requested_width,
+        old.scale,
+        dpi,
+        work_area.width,
+        old.margin_y,
+    );
+
+    if target_mode != old.mode {
+        let mut current = window_state().lock().map_err(|_| {
+            "state_transition field=width stage=commit error=lock_poisoned".to_string()
+        })?;
+        match target_mode {
+            IslandMode::Collapsed => current.collapsed_width = width,
+            IslandMode::Expanded => current.expanded_width = width,
+        }
+        return Ok(width);
+    }
+
+    execute_state_transition_with_rollback(
+        old.clone(),
+        |candidate| match target_mode {
+            IslandMode::Collapsed => candidate.collapsed_width = width,
+            IslandMode::Expanded => candidate.expanded_width = width,
+        },
+        |candidate| {
+            let mut frame = target_window_frame(
+                &window,
+                candidate,
+                Some(original_geometry),
+                GeometryIntent::PreserveAnchor,
+            )?;
+            frame.position.x = resized_x_for_fixed_edge(
+                original_geometry.position.x,
+                original_geometry.width,
+                frame.width,
+                fixed_edge,
+            );
+            frame.position.x =
+                clamp_x_physical(frame.position.x, frame.width, work_area.x, work_area.width);
+            apply_physical_window_frame(&window, frame)?;
+            if !candidate.is_tucked {
+                remember_visible_placement(&window, frame.position)?;
+            }
+            Ok(())
+        },
+        || restore_physical_geometry(&window, original_geometry, &old),
+        |candidate| {
+            let mut current = window_state()
+                .lock()
+                .map_err(|_| "lock_poisoned".to_string())?;
+            match target_mode {
+                IslandMode::Collapsed => current.collapsed_width = candidate.collapsed_width,
+                IslandMode::Expanded => current.expanded_width = candidate.expanded_width,
+            }
+            Ok(())
+        },
+        "width",
+    )?;
+    Ok(width)
+}
+
 fn resolve_client_area_animation_preference(preference: Result<bool, ()>) -> bool {
     preference.unwrap_or(false)
 }
@@ -1247,6 +1372,30 @@ fn transition_window_mode(
         .map_err(|error| format!("state_transition field=mode stage=snapshot error={error}"))?;
     let mut candidate = old.clone();
     candidate.mode = mode;
+    let work_area = work_area_for_window(&window)?;
+    let dpi = window.scale_factor().map_err(|error| error.to_string())?;
+    match mode {
+        IslandMode::Collapsed => {
+            candidate.collapsed_width = clamp_width_to_work_area(
+                mode,
+                candidate.collapsed_width,
+                candidate.scale,
+                dpi,
+                work_area.width,
+                candidate.margin_y,
+            );
+        }
+        IslandMode::Expanded => {
+            candidate.expanded_width = clamp_width_to_work_area(
+                mode,
+                candidate.expanded_width,
+                candidate.scale,
+                dpi,
+                work_area.width,
+                candidate.margin_y,
+            );
+        }
+    }
     let start = current_window_frame(&window, &old)?;
     let end = target_window_frame(
         &window,
@@ -1363,6 +1512,8 @@ fn transition_window_mode(
                 format_transition_error("mode", "commit", "lock_poisoned".to_string(), rollback)
             })?;
             current.mode = candidate.mode;
+            current.collapsed_width = candidate.collapsed_width;
+            current.expanded_width = candidate.expanded_width;
             Ok(())
         },
     );
@@ -1766,11 +1917,36 @@ async fn set_island_mode(
 #[tauri::command]
 fn set_island_scale(app: AppHandle, scale: f64) -> Result<(), String> {
     let scale = clamp_scale(scale);
+    let window = main_window(&app)?;
+    let work_area = work_area_for_window(&window)?;
+    let dpi = window.scale_factor().map_err(|error| error.to_string())?;
     transition_window_state(
         &app,
         "scale",
-        |candidate| candidate.scale = scale,
-        |current, candidate| current.scale = candidate.scale,
+        |candidate| {
+            candidate.scale = scale;
+            candidate.collapsed_width = clamp_width_to_work_area(
+                IslandMode::Collapsed,
+                candidate.collapsed_width,
+                scale,
+                dpi,
+                work_area.width,
+                candidate.margin_y,
+            );
+            candidate.expanded_width = clamp_width_to_work_area(
+                IslandMode::Expanded,
+                candidate.expanded_width,
+                scale,
+                dpi,
+                work_area.width,
+                candidate.margin_y,
+            );
+        },
+        |current, candidate| {
+            current.scale = candidate.scale;
+            current.collapsed_width = candidate.collapsed_width;
+            current.expanded_width = candidate.expanded_width;
+        },
     )
 }
 
@@ -1828,6 +2004,21 @@ fn set_island_expanded_height(app: AppHandle, height: f64) -> Result<(), String>
 }
 
 #[tauri::command]
+fn set_island_width(
+    app: AppHandle,
+    mode: String,
+    width: f64,
+    fixed_edge: String,
+) -> Result<f64, String> {
+    transition_window_width(
+        &app,
+        IslandMode::from_value(&mode)?,
+        width,
+        FixedHorizontalEdge::from_value(&fixed_edge)?,
+    )
+}
+
+#[tauri::command]
 fn set_island_tucked(app: AppHandle, tucked: bool) -> Result<(), String> {
     transition_tucked_state(&app, tucked)
 }
@@ -1845,6 +2036,8 @@ struct InitialState {
     scale: f64,
     dpi: f64,
     mode: &'static str,
+    collapsed_width: f64,
+    expanded_width: f64,
     expanded_height: f64,
     tucked: bool,
     rasterization_error: Option<String>,
@@ -1862,6 +2055,8 @@ fn get_initial_state(app: AppHandle) -> Result<InitialState, String> {
             IslandMode::Collapsed => "collapsed",
             IslandMode::Expanded => "expanded",
         },
+        collapsed_width: state.collapsed_width,
+        expanded_width: state.expanded_width,
         expanded_height: state.expanded_height,
         tucked: state.is_tucked,
         rasterization_error: latest_rasterization_error(),
@@ -2009,6 +2204,7 @@ macro_rules! registered_handler_from_all_boundaries {
             set_island_scale,
             set_island_glass_transparency,
             set_island_expanded_height,
+            set_island_width,
             set_island_tucked,
             start_island_drag,
             get_initial_state,

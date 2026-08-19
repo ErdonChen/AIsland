@@ -20,14 +20,24 @@ import TabBar from "./TabBar";
 import StatusDot from "./StatusDot";
 import { AGENT_STATUS_COLOR } from "./agentStatusPresentation";
 import type { InitialState, IslandExpansionMotion, IslandMode, IslandPage } from "../types";
+import {
+  clampWindowScale,
+  clampWindowWidth,
+  DEFAULT_COLLAPSED_WIDTH,
+  DEFAULT_EXPANDED_WIDTH,
+  horizontalDragWidth,
+  shouldCollapseFromExpandedWidth,
+} from "../windowGeometry";
 
 const SCALE_KEY = "aisland.window.scale";
+const COLLAPSED_WIDTH_KEY = "aisland.window.collapsedWidth.v1";
+const EXPANDED_WIDTH_KEY = "aisland.window.expandedWidth.v1";
 const GLASS_TRANSPARENCY_KEY = "aisland.display.glassTransparency.v1";
 const EXPANSION_MOTION_KEY = "aisland.display.expansionMotion.v1";
 const COMPACT_WINDOW_KEY = "aisland.display.compactWindow.v1";
 const NOTIFICATION_POPUP_KEY = "aisland.notifications.popup.v1";
 const DEFAULT_GLASS_TRANSPARENCY = 58;
-const COMPACT_EXPAND_DELAY_MS = 140;
+const COMPACT_EXPAND_DELAY_MS = 600;
 const COMPACT_COLLAPSE_DELAY_MS = 280;
 const NOTIFICATION_VISIBLE_MS = 8_000;
 const PAGE_LABEL_KEYS: Record<IslandPage, TranslationKey> = {
@@ -67,10 +77,6 @@ type SettingsRouteEntry = {
 type IslandNotification =
   | { kind: "reminder"; delivery: ReminderDelivery }
   | { kind: "system"; item: NotificationHistoryItem };
-
-function clampScale(value: number) {
-  return Number.isFinite(value) ? Math.min(1.4, Math.max(0.75, value)) : 1;
-}
 
 function clampGlassTransparency(value: number) {
   return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : DEFAULT_GLASS_TRANSPARENCY;
@@ -260,7 +266,7 @@ export class ConfirmedDesiredSingleFlight {
 
   constructor(
     private confirmed: number,
-    private readonly perform: (value: number) => Promise<void>,
+    private readonly perform: (value: number) => Promise<number>,
     private readonly onCommitted: (value: number) => void,
     private readonly onFailed: (error: unknown) => void,
   ) {
@@ -287,9 +293,12 @@ export class ConfirmedDesiredSingleFlight {
     const target = this.desired;
     this.inFlight = true;
     try {
-      await this.perform(target);
-      this.confirmed = target;
-      if (this.desired === target) this.onCommitted(target);
+      const committed = await this.perform(target);
+      this.confirmed = committed;
+      if (this.desired === target) {
+        this.desired = committed;
+        this.onCommitted(committed);
+      }
     } catch (error) {
       if (this.desired === target) {
         this.desired = this.confirmed;
@@ -314,6 +323,8 @@ export default function IslandShell() {
   const [compactWindowEnabled, setCompactWindowEnabled] = useState(() => loadBooleanPreference(COMPACT_WINDOW_KEY, true));
   const [notificationPopupEnabled, setNotificationPopupEnabled] = useState(() => loadBooleanPreference(NOTIFICATION_POPUP_KEY, true));
   const [activeNotification, setActiveNotification] = useState<IslandNotification | null>(null);
+  const [collapsedWidth, setCollapsedWidth] = useState(DEFAULT_COLLAPSED_WIDTH);
+  const [expandedWidth, setExpandedWidth] = useState(DEFAULT_EXPANDED_WIDTH);
   const [expandedHeight, setExpandedHeight] = useState(306);
   const [tucked, setTucked] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -341,9 +352,14 @@ export default function IslandShell() {
   const nextSettingsRouteEntryRef = useRef(0);
   const untuckInFlightRef = useRef(false);
   const scaleCoordinatorRef = useRef<LatestWinsSingleFlight<number> | null>(null);
+  const collapsedWidthCoordinatorRef = useRef<ConfirmedDesiredSingleFlight | null>(null);
+  const expandedWidthCoordinatorRef = useRef<ConfirmedDesiredSingleFlight | null>(null);
+  const collapsedFixedEdgeRef = useRef<"left" | "right">("left");
+  const expandedFixedEdgeRef = useRef<"left" | "right">("left");
   const heightCoordinatorRef = useRef<ConfirmedDesiredSingleFlight | null>(null);
   const modeCoordinatorRef = useRef<LatestWinsImmediate<IslandMode> | null>(null);
   const heightDragCleanupRef = useRef<(() => void) | null>(null);
+  const widthDragCleanupRef = useRef<(() => void) | null>(null);
   const compactWindowEnabledRef = useRef(compactWindowEnabled);
   const notificationPopupEnabledRef = useRef(notificationPopupEnabled);
   const activeNotificationRef = useRef<IslandNotification | null>(activeNotification);
@@ -364,6 +380,15 @@ export default function IslandShell() {
       async (value) => {
         if (mountedRef.current) setPending(true);
         await invoke("set_island_mode", { mode: value, motion: expansionMotionRef.current });
+        const confirmed = await invoke<InitialState>("get_initial_state");
+        if (mountedRef.current) {
+          const nextCollapsedWidth = clampWindowWidth("collapsed", confirmed.collapsedWidth);
+          const nextExpandedWidth = clampWindowWidth("expanded", confirmed.expandedWidth);
+          collapsedWidthCoordinatorRef.current?.resetConfirmed(nextCollapsedWidth);
+          expandedWidthCoordinatorRef.current?.resetConfirmed(nextExpandedWidth);
+          setCollapsedWidth(nextCollapsedWidth);
+          setExpandedWidth(nextExpandedWidth);
+        }
       },
       (value) => {
         modeRef.current = value;
@@ -384,6 +409,15 @@ export default function IslandShell() {
       1,
       async (value) => {
         await invoke("set_island_scale", { scale: value });
+        const confirmed = await invoke<InitialState>("get_initial_state");
+        if (mountedRef.current) {
+          const nextCollapsedWidth = clampWindowWidth("collapsed", confirmed.collapsedWidth);
+          const nextExpandedWidth = clampWindowWidth("expanded", confirmed.expandedWidth);
+          collapsedWidthCoordinatorRef.current?.resetConfirmed(nextCollapsedWidth);
+          expandedWidthCoordinatorRef.current?.resetConfirmed(nextExpandedWidth);
+          setCollapsedWidth(nextCollapsedWidth);
+          setExpandedWidth(nextExpandedWidth);
+        }
       },
       (value) => {
         if (!mountedRef.current) return;
@@ -398,11 +432,60 @@ export default function IslandShell() {
     );
   }
 
+  if (collapsedWidthCoordinatorRef.current === null) {
+    collapsedWidthCoordinatorRef.current = new ConfirmedDesiredSingleFlight(
+      DEFAULT_COLLAPSED_WIDTH,
+      async (value) => {
+        const confirmed = await invoke<number | undefined>("set_island_width", {
+          mode: "collapsed",
+          width: value,
+          fixedEdge: collapsedFixedEdgeRef.current,
+        });
+        return clampWindowWidth("collapsed", confirmed ?? value);
+      },
+      (value) => {
+        if (!mountedRef.current) return;
+        setCollapsedWidth(value);
+        try {
+          localStorage.setItem(COLLAPSED_WIDTH_KEY, String(value));
+        } catch (error) {
+          console.error("Failed to persist collapsed island width", error);
+        }
+      },
+      (error) => console.error("Failed to set collapsed island width", error),
+    );
+  }
+
+  if (expandedWidthCoordinatorRef.current === null) {
+    expandedWidthCoordinatorRef.current = new ConfirmedDesiredSingleFlight(
+      DEFAULT_EXPANDED_WIDTH,
+      async (value) => {
+        const confirmed = await invoke<number | undefined>("set_island_width", {
+          mode: "expanded",
+          width: value,
+          fixedEdge: expandedFixedEdgeRef.current,
+        });
+        return clampWindowWidth("expanded", confirmed ?? value);
+      },
+      (value) => {
+        if (!mountedRef.current) return;
+        setExpandedWidth(value);
+        try {
+          localStorage.setItem(EXPANDED_WIDTH_KEY, String(value));
+        } catch (error) {
+          console.error("Failed to persist expanded island width", error);
+        }
+      },
+      (error) => console.error("Failed to set expanded island width", error),
+    );
+  }
+
   if (heightCoordinatorRef.current === null) {
     heightCoordinatorRef.current = new ConfirmedDesiredSingleFlight(
       306,
       async (value) => {
         await invoke("set_island_expanded_height", { height: value });
+        return value;
       },
       (value) => {
         if (mountedRef.current) setExpandedHeight(value);
@@ -657,14 +740,32 @@ export default function IslandShell() {
         modeRef.current = initial.mode;
         modeCoordinatorRef.current?.resetConfirmed(initial.mode);
         setScale(initial.scale);
+        const initialCollapsedWidth = clampWindowWidth("collapsed", initial.collapsedWidth);
+        const initialExpandedWidth = clampWindowWidth("expanded", initial.expandedWidth);
+        setCollapsedWidth(initialCollapsedWidth);
+        setExpandedWidth(initialExpandedWidth);
         setExpandedHeight(initial.expandedHeight);
         scaleCoordinatorRef.current?.resetConfirmed(initial.scale);
+        collapsedWidthCoordinatorRef.current?.resetConfirmed(initialCollapsedWidth);
+        expandedWidthCoordinatorRef.current?.resetConfirmed(initialExpandedWidth);
         heightCoordinatorRef.current?.resetConfirmed(initial.expandedHeight);
         setTucked(initial.tucked);
 
         const saved = Number(localStorage.getItem(SCALE_KEY) ?? initial.scale);
-        const nextScale = clampScale(saved);
+        const nextScale = clampWindowScale(saved);
         if (active) scaleCoordinatorRef.current?.request(nextScale);
+        const savedCollapsedWidth = clampWindowWidth(
+          "collapsed",
+          Number(localStorage.getItem(COLLAPSED_WIDTH_KEY) ?? initialCollapsedWidth),
+        );
+        const savedExpandedWidth = clampWindowWidth(
+          "expanded",
+          Number(localStorage.getItem(EXPANDED_WIDTH_KEY) ?? initialExpandedWidth),
+        );
+        if (active) {
+          collapsedWidthCoordinatorRef.current?.request(savedCollapsedWidth);
+          expandedWidthCoordinatorRef.current?.request(savedExpandedWidth);
+        }
       } catch (error) {
         if (active) console.error("Failed to initialize island window", error);
       } finally {
@@ -798,12 +899,16 @@ export default function IslandShell() {
     };
   }, []);
 
-  const clearHoverTimers = useCallback(() => {
+  const cancelCompactHoverExpansion = useCallback(() => {
     if (hoverExpandTimerRef.current !== undefined) window.clearTimeout(hoverExpandTimerRef.current);
-    if (hoverCollapseTimerRef.current !== undefined) window.clearTimeout(hoverCollapseTimerRef.current);
     hoverExpandTimerRef.current = undefined;
-    hoverCollapseTimerRef.current = undefined;
   }, []);
+
+  const clearHoverTimers = useCallback(() => {
+    cancelCompactHoverExpansion();
+    if (hoverCollapseTimerRef.current !== undefined) window.clearTimeout(hoverCollapseTimerRef.current);
+    hoverCollapseTimerRef.current = undefined;
+  }, [cancelCompactHoverExpansion]);
 
   const scheduleCompactCollapse = useCallback(() => {
     if (
@@ -946,6 +1051,7 @@ export default function IslandShell() {
 
   useEffect(() => () => {
     heightDragCleanupRef.current?.();
+    widthDragCleanupRef.current?.();
   }, []);
 
   const untuck = useCallback(async () => {
@@ -962,8 +1068,18 @@ export default function IslandShell() {
     }
   }, []);
 
+  const tuckToTop = useCallback(async () => {
+    if (!initialized || modeRef.current !== "collapsed" || tucked) return;
+    try {
+      await invoke("set_island_tucked", { tucked: true });
+      if (mountedRef.current) setTucked(true);
+    } catch (error) {
+      console.error("Failed to tuck island to the top edge", error);
+    }
+  }, [initialized, tucked]);
+
   const applyScale = useCallback((value: number) => {
-    scaleCoordinatorRef.current?.request(clampScale(value));
+    scaleCoordinatorRef.current?.request(clampWindowScale(value));
   }, []);
 
   const applyGlassTransparency = useCallback((value: number) => {
@@ -1121,6 +1237,74 @@ export default function IslandShell() {
     handle.addEventListener("pointercancel", stop);
   }, [expandedHeight, initialized, mode, scale]);
 
+  const beginHorizontalDrag = useCallback((
+    event: React.PointerEvent<HTMLDivElement>,
+    handleSide: "left" | "right",
+    resizeHeight = false,
+  ) => {
+    if (event.button !== 0 || !initialized || tucked) return;
+
+    event.stopPropagation();
+    widthDragCleanupRef.current?.();
+    const handle = event.currentTarget;
+    const pointerId = event.pointerId;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const resizeMode = mode;
+    const widthCoordinator = resizeMode === "collapsed"
+      ? collapsedWidthCoordinatorRef.current
+      : expandedWidthCoordinatorRef.current;
+    const startWidth = widthCoordinator?.confirmedValue()
+      ?? (resizeMode === "collapsed" ? collapsedWidth : expandedWidth);
+    const startHeight = heightCoordinatorRef.current?.confirmedValue() ?? expandedHeight;
+    const fixedEdge = handleSide === "right" ? "left" : "right";
+    let rawWidth = startWidth;
+    handle.setPointerCapture(pointerId);
+
+    if (resizeMode === "collapsed") collapsedFixedEdgeRef.current = fixedEdge;
+    else expandedFixedEdgeRef.current = fixedEdge;
+
+    const move = (nextEvent: PointerEvent) => {
+      rawWidth = horizontalDragWidth(startWidth, nextEvent.clientX - startX, scale, handleSide);
+      const nextWidth = clampWindowWidth(resizeMode, rawWidth);
+      if (mountedRef.current) {
+        if (resizeMode === "collapsed") setCollapsedWidth(nextWidth);
+        else setExpandedWidth(nextWidth);
+      }
+      widthCoordinator?.request(nextWidth);
+      if (resizeHeight && resizeMode === "expanded") {
+        const nextHeight = Math.min(
+          MAX_EXPANDED_HEIGHT,
+          Math.max(MIN_EXPANDED_HEIGHT, startHeight + (nextEvent.clientY - startY) / scale),
+        );
+        heightCoordinatorRef.current?.request(nextHeight);
+      }
+    };
+
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+      handle.removeEventListener("pointercancel", stop);
+      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      if (widthDragCleanupRef.current === stop) widthDragCleanupRef.current = null;
+
+      if (resizeMode === "expanded" && shouldCollapseFromExpandedWidth(rawWidth)) {
+        const capsuleWidth = clampWindowWidth("collapsed", rawWidth);
+        collapsedFixedEdgeRef.current = fixedEdge;
+        void requestMode("collapsed").then((confirmedMode) => {
+          if (confirmedMode === "collapsed") {
+            collapsedWidthCoordinatorRef.current?.request(capsuleWidth);
+          }
+        });
+      }
+    };
+
+    widthDragCleanupRef.current = stop;
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
+  }, [collapsedWidth, expandedHeight, expandedWidth, initialized, mode, requestMode, scale, tucked]);
+
   const toggleMode = useCallback(() => {
     if (!initialized || pending) return;
     if (mode === "expanded") pinnedExpandedRef.current = false;
@@ -1155,10 +1339,10 @@ export default function IslandShell() {
 
   const canvasSize = useMemo(
     () => ({
-      width: mode === "collapsed" ? 248 : 560,
+      width: mode === "collapsed" ? collapsedWidth : expandedWidth,
       height: mode === "collapsed" ? 46 : expandedHeight,
     }),
-    [expandedHeight, mode],
+    [collapsedWidth, expandedHeight, expandedWidth, mode],
   );
   const sortedAgents = useMemo(
     () => sortAgentsByPriority(visibleAgentSummaries(agentsSnapshot.agents)),
@@ -1193,7 +1377,7 @@ export default function IslandShell() {
   } as CSSProperties;
   const viewportStyle = {
     "--island-window-radius": `${(mode === "collapsed" ? 23 : 24) * scale}px`,
-    "--island-compact-width": `${248 * scale}px`,
+    "--island-compact-width": `${collapsedWidth * scale}px`,
     "--island-compact-height": `${46 * scale}px`,
   } as CSSProperties;
 
@@ -1205,6 +1389,7 @@ export default function IslandShell() {
         style={glassStyle}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
+        onPointerDownCapture={cancelCompactHoverExpansion}
         onDoubleClick={pinExpanded}
       >
         <header className="island-topbar">
@@ -1212,6 +1397,7 @@ export default function IslandShell() {
             {mode === "collapsed" ? (
               <AgentStatusSlots
                 agents={sortedAgents}
+                compactWidth={collapsedWidth}
                 profileSummaries={agentProfilesSnapshot.profiles}
                 onOpenAgent={(agentId) => void openAgent(agentId)}
                 onOpenProfile={openAgentProfile}
@@ -1262,6 +1448,19 @@ export default function IslandShell() {
           >
             {mode === "collapsed" ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
+          {mode === "collapsed" && (
+            <button
+              type="button"
+              className="tab-toggle tab-tuck"
+              title={t("action.tuckToTop")}
+              aria-label={t("action.tuckToTop")}
+              disabled={!initialized || tucked}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => void tuckToTop()}
+            >
+              <ChevronUp size={16} />
+            </button>
+          )}
         </header>
         {mode === "expanded" && activeNotification && (
           <div className="island-notification" role="status" aria-live="polite">
@@ -1328,12 +1527,44 @@ export default function IslandShell() {
             onPointerDown={beginHeightDrag}
           />
         )}
+        <div
+          className="width-handle width-handle--left"
+          role="separator"
+          aria-label={t("aria.windowWidthLeft")}
+          aria-orientation="vertical"
+          onPointerDown={(event) => beginHorizontalDrag(event, "left")}
+        />
+        <div
+          className="width-handle width-handle--right"
+          role="separator"
+          aria-label={t("aria.windowWidthRight")}
+          aria-orientation="vertical"
+          onPointerDown={(event) => beginHorizontalDrag(event, "right")}
+        />
+        {mode === "expanded" && (
+          <>
+            <div
+              className="corner-handle corner-handle--left"
+              role="separator"
+              aria-label={t("aria.windowBottomLeft")}
+              onPointerDown={(event) => beginHorizontalDrag(event, "left", true)}
+            />
+            <div
+              className="corner-handle corner-handle--right"
+              role="separator"
+              aria-label={t("aria.windowBottomRight")}
+              onPointerDown={(event) => beginHorizontalDrag(event, "right", true)}
+            />
+          </>
+        )}
       </div>
       {tucked && (
-        <div
+        <button
+          type="button"
           className="tuck-strip"
           aria-label={t("aria.expandIsland")}
           onPointerEnter={() => void untuck()}
+          onClick={() => void untuck()}
         />
       )}
     </div>
