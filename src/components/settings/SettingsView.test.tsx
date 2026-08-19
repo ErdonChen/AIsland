@@ -232,9 +232,9 @@ test("keeps glass transparency first and motion preview compact until requested"
 
   await user.click(screen.getByRole("button", { name: "显示与外观" }));
 
-  const slider = screen.getByRole("slider", { name: "玻璃透明度" });
-  const scaleChoice = screen.getByRole("button", { name: "中" });
-  expect(slider.compareDocumentPosition(scaleChoice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const glassSlider = screen.getByRole("slider", { name: "玻璃透明度" });
+  const scaleSlider = screen.getByRole("slider", { name: "窗口缩放" });
+  expect(glassSlider.compareDocumentPosition(scaleSlider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByTestId("agent-state-motion-preview")).not.toBeInTheDocument();
 
   const previewToggle = screen.getByRole("button", { name: "状态动效预览" });
@@ -695,18 +695,21 @@ test("refreshes service health and runtime records after an integrity check with
   expect(screen.getByText("refreshed-service: refreshed")).toBeInTheDocument();
 });
 
-test("renders the confirmed four scale tiers in Display and delegates selection", async () => {
+test("renders the confirmed 0-100 scale slider and previews the mapped percentage", async () => {
   const user = userEvent.setup();
   renderSettings();
 
   await user.click(screen.getByRole("button", { name: "显示与外观" }));
-  expect(screen.getByRole("button", { name: "小" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "中" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "大" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "特大" })).toBeInTheDocument();
+  const slider = screen.getByRole("slider", { name: "窗口缩放" });
+  expect(slider).toHaveAttribute("min", "0");
+  expect(slider).toHaveAttribute("max", "100");
+  expect(slider).toHaveValue("50");
+  expect(screen.getByText("100%", { selector: "output" })).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "大" }));
-  expect(screen.getByRole("button", { name: "大" })).toHaveAttribute("aria-pressed", "true");
+  fireEvent.change(slider, { target: { value: "75" } });
+  expect(slider).toHaveValue("75");
+  expect(slider).toHaveAttribute("aria-valuetext", "160%");
+  expect(screen.getByText("160%", { selector: "output" })).toBeInTheDocument();
 });
 
 test("opens the AIsland Agent settings surface with the new preset and Custom Hook choices", async () => {

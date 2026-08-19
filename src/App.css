@@ -129,6 +129,7 @@ button:not(:disabled):active > svg { transform: scale(0.88); }
 
 .agent-status-slots { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .agent-logo-strip { min-width: 0; display: flex; align-items: center; gap: 3px; }
+.agent-overflow-count { flex: 0 0 auto; color: rgba(255,255,255,.58); font-size: 10px; font-variant-numeric: tabular-nums; }
 .agent-logo-button { position: relative; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; color: rgba(255,255,255,.8); background: linear-gradient(180deg,rgb(255 255 255 / var(--glass-panel-alpha)),rgba(255,255,255,.015)); cursor: pointer; }
 .agent-logo-button:hover { color: #fff; border-color: rgba(255,255,255,.72); background: rgba(255,255,255,.11); }
 .agent-logo-button > .status-dot { position: absolute; right: -1px; bottom: -1px; width: 6px; height: 6px; border: 1px solid rgba(20,20,25,.9); }
@@ -142,7 +143,7 @@ button:not(:disabled):active > svg { transform: scale(0.88); }
 .agent-gui-logo--profile-trae { color: #d5edff; background: rgba(69,143,211,.2); }
 .agent-gui-logo--profile-qoderwork { color: #c9f7e3; background: rgba(58,184,133,.2); }
 .agent-gui-logo--profile-custom { color: #ffe4b6; background: rgba(224,154,59,.2); }
-.agent-compact-state { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; min-width: 55px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; color: rgba(255,255,255,.68); background: rgba(0,0,0,.12); font-size: 10px; white-space: nowrap; }
+.agent-compact-state { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; color: rgba(255,255,255,.68); background: rgba(0,0,0,.12); font-size: 10px; white-space: nowrap; }
 .agent-compact-state .status-dot { width: 6px; height: 6px; }
 .island-notification { display: flex; align-items: center; gap: 8px; margin: 0 10px 4px; padding: 7px 8px; border: 1px solid rgba(126,190,255,0.34); border-radius: 10px; background: linear-gradient(135deg, rgba(55,138,221,0.24), rgb(255 255 255 / var(--glass-panel-alpha))); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 7px 18px rgba(0,0,0,0.16); animation: island-notification-in 180ms cubic-bezier(0.2,0.9,0.2,1.15); }
 .island-notification__icon { width: 25px; height: 25px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; color: #d9ecff; background: rgba(55,138,221,0.22); }
@@ -532,14 +533,49 @@ button.agent-profile-card:hover, .agent-profile-card:hover { border-color: rgba(
   cursor: ns-resize;
   touch-action: none;
 }
+.width-handle {
+  position: absolute;
+  z-index: 8;
+  top: 8px;
+  bottom: 8px;
+  width: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+  transition: background 120ms ease;
+}
+.width-handle--left { left: 0; }
+.width-handle--right { right: 0; }
+.width-handle:hover { background: rgba(114,188,255,.12); }
+.corner-handle {
+  position: absolute;
+  z-index: 9;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  touch-action: none;
+}
+.corner-handle--left { left: 0; cursor: nesw-resize; }
+.corner-handle--right { right: 0; cursor: nwse-resize; }
+.corner-handle:hover { background: radial-gradient(circle at bottom, rgba(114,188,255,.24), transparent 70%); }
 .tuck-strip {
   position: absolute;
+  z-index: 20;
   left: 0;
   right: 0;
   bottom: 0;
   height: 10px;
-  background: rgba(255,255,255,0.16);
+  padding: 0;
+  border: 0;
+  background: #000;
+  cursor: pointer;
   animation: strip-in 150ms ease-out;
+}
+.tuck-strip:hover,
+.tuck-strip:active {
+  background: #000;
+  box-shadow: none;
+  filter: none;
+  transform: none;
 }
 
 /* At the 100% endpoint the desktop is the material: keep only content and outlines. */

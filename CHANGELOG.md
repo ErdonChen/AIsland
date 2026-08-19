@@ -15,6 +15,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Public repository and updater links now use `ErdonChen/AIsland`.
 
+## [0.1.0-preview.5] - 2026-08-19
+
+### Added
+
+- Replaced the four fixed window-scale presets with a continuous 80%-220%
+  slider and live preview, providing a practical range for 2K and 4K displays.
+- Added horizontal and corner resizing for the floating capsule, with separate
+  width memory for collapsed and expanded layouts.
+- Added a top-edge tuck control that reduces the capsule to a visible black
+  strip and restores it when the pointer returns.
+
+### Changed
+
+- Made collapsed capsule information responsive across narrow, medium, and wide
+  widths. Agent icons, status indicators, status text, and running or attention
+  state remain visible, while extra agents collapse into `+N` as space runs out.
+- Increased the hover expansion delay to 600 ms and cancelled pending expansion
+  when resizing or using the tuck control, leaving enough time to operate the
+  capsule without accidental expansion.
+
 ## [0.1.0-preview.4] - 2026-08-18
 
 ### Fixed

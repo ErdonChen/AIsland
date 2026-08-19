@@ -13,6 +13,7 @@ import { AGENT_STATUS_COLOR, isAgentAttentionStatus } from "./agentStatusPresent
 
 export interface AgentStatusSlotsProps {
   agents: AgentSummary[];
+  compactWidth?: number;
   onOpenAgent(agentId: AgentId): void;
   profileSummaries?: AgentProfileStatusSummary[];
   onOpenProfile?(profileId: string): void;
@@ -138,9 +139,16 @@ function AgentLogo({ asset }: { asset: AgentLogoAsset }) {
   return <Fallback size={15} strokeWidth={1.7} />;
 }
 
-export default function AgentStatusSlots({ agents, profileSummaries = [], onOpenAgent, onOpenProfile }: AgentStatusSlotsProps) {
+export function visibleAgentCapacityForWidth(width: number) {
+  if (!Number.isFinite(width)) return 4;
+  return Math.max(4, Math.floor((width - 124) / 31));
+}
+
+export default function AgentStatusSlots({ agents, compactWidth = 720, profileSummaries = [], onOpenAgent, onOpenProfile }: AgentStatusSlotsProps) {
   const { t } = useI18n();
   const sorted = useMemo<StatusSlot[]>(() => collectStatusSlots(agents, profileSummaries), [agents, profileSummaries]);
+  const visibleCapacity = visibleAgentCapacityForWidth(compactWidth);
+  const hiddenCount = Math.max(0, sorted.length - visibleCapacity);
   const running = sorted.some((slot) => slot.status === "running");
   const attention = sorted.some((slot) => isAgentAttentionStatus(slot.status));
   const completed = sorted.some((slot) => slot.status === "completed");
@@ -162,7 +170,7 @@ export default function AgentStatusSlots({ agents, profileSummaries = [], onOpen
   return (
     <div className="agent-status-slots" aria-label={t("aria.agentStatus")}>
       <div className="agent-logo-strip">
-        {sorted.slice(0, 4).map((slot) => {
+        {sorted.slice(0, visibleCapacity).map((slot) => {
           if (slot.kind === "profile") {
             const { profile } = slot.profile;
             const logo = PROFILE_LOGOS[slot.logo];
@@ -205,6 +213,7 @@ export default function AgentStatusSlots({ agents, profileSummaries = [], onOpen
             </button>
           );
         })}
+        {hiddenCount > 0 && <span className="agent-overflow-count">+{hiddenCount}</span>}
       </div>
       <div className="agent-compact-state" aria-label={overallStatus}>
         <StatusDot

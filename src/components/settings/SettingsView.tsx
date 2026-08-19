@@ -28,16 +28,10 @@ import DiagnosticsSettings from "../../settings/DiagnosticsSettings";
 import ReminderSettings from "../../settings/ReminderSettings";
 import MonitorSettings from "../../settings/MonitorSettings";
 import type { IslandExpansionMotion } from "../../types";
+import { scaleFromSliderPosition, sliderPositionFromScale, windowScalePercent } from "../../windowGeometry";
 import StatusDot from "../StatusDot";
 import { AGENT_STATUS_COLOR } from "../agentStatusPresentation";
 import SettingRow from "./SettingRow";
-
-const SCALE_OPTIONS: readonly { value: number; key: TranslationKey }[] = [
-  { value: 0.85, key: "settings.scale.small" },
-  { value: 1, key: "settings.scale.medium" },
-  { value: 1.15, key: "settings.scale.large" },
-  { value: 1.3, key: "settings.scale.xlarge" },
-];
 
 const EXPANSION_MOTION_OPTIONS: readonly { value: IslandExpansionMotion; key: TranslationKey }[] = [
   { value: "elastic", key: "settings.expansionMotion.elastic" },
@@ -129,6 +123,8 @@ export default function SettingsView({
   const reminderRulesGenerationRef = useRef(0);
   const reminderRouteGenerationRef = useRef(0);
   const category = route.level === "root" ? null : settingsCategoryById(route.category);
+  const scaleSliderPosition = Math.round(sliderPositionFromScale(scale));
+  const scalePercent = windowScalePercent(scale);
   const routeKey = route.level === "root"
     ? "root"
     : route.level === "category"
@@ -137,14 +133,14 @@ export default function SettingsView({
 
   const summaries = useMemo<Record<SettingsCategory, string>>(() => ({
     general: t(language === "zh-CN" ? "settings.language.zhCN" : "settings.language.enUS"),
-    display: `${t(SCALE_OPTIONS.find((option) => option.value === scale)?.key ?? "settings.scale.medium")} · ${glassTransparency}%`,
+    display: `${scalePercent}% · ${glassTransparency}%`,
     storage: t("settings.summary.storage"),
     agents: t("settings.summary.agents"),
     reminders: t("settings.summary.reminders"),
     modules: t("settings.summary.modules"),
     diagnostics: t("settings.categories.diagnostics.description"),
     about: t("settings.summary.about"),
-  }), [glassTransparency, language, scale, t]);
+  }), [glassTransparency, language, scalePercent, t]);
   const diagnosticsActive = route.level === "category" && route.category === "diagnostics";
   const remindersActive = route.level !== "root" && route.category === "reminders";
   const generalActive = route.level === "category" && route.category === "general";
@@ -587,25 +583,34 @@ export default function SettingsView({
                 </div>
               </div>
             </div>
-            <div className="settings-control">
-              <div className="settings-control__copy">
-                <span>{t("settings.scale")}</span>
-                <span>{t("settings.scaleHint")}</span>
+            <div className="settings-control settings-scale-control">
+              <div className="settings-control__heading">
+                <div className="settings-control__copy">
+                  <span>{t("settings.scale")}</span>
+                  <span>{t("settings.scaleHint")}</span>
+                </div>
+                <output className="settings-range__value" htmlFor="window-scale">
+                  {scalePercent}%
+                </output>
               </div>
-              <div className="settings-choice-group" role="group" aria-label={t("settings.scale")}>
-                {SCALE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`settings-choice${scale === option.value ? " settings-choice--active" : ""}`}
-                    aria-pressed={scale === option.value}
-                    title={t(option.key)}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={() => onScaleChange(option.value)}
-                  >
-                    {t(option.key)}
-                  </button>
-                ))}
+              <div className="settings-range">
+                <input
+                  id="window-scale"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={scaleSliderPosition}
+                  aria-label={t("settings.scale")}
+                  aria-valuetext={`${scalePercent}%`}
+                  style={{ "--range-progress": `${scaleSliderPosition}%` } as CSSProperties}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onChange={(event) => onScaleChange(scaleFromSliderPosition(Number(event.currentTarget.value)))}
+                />
+                <div className="settings-range__labels" aria-hidden="true">
+                  <span>80%</span>
+                  <span>220%</span>
+                </div>
               </div>
             </div>
             <div className="settings-control settings-motion-control">

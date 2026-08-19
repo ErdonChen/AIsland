@@ -402,10 +402,119 @@ const INITIAL_STATE = {
   mode: "expanded" as const,
   scale: 1,
   dpi: 96,
+  collapsedWidth: 248,
+  expandedWidth: 560,
   expandedHeight: 306,
   tucked: false,
   rasterizationError: null,
 };
+
+function installPointerCapture(element: HTMLElement) {
+  Object.defineProperties(element, {
+    setPointerCapture: { configurable: true, value: vi.fn() },
+    hasPointerCapture: { configurable: true, value: vi.fn().mockReturnValue(true) },
+    releasePointerCapture: { configurable: true, value: vi.fn() },
+  });
+}
+
+test("resizes a capsule horizontally while keeping the opposite edge fixed", async () => {
+  invokeMock.mockImplementation((command: string) => {
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  });
+  const { container } = renderShell();
+
+  const rightHandle = await screen.findByRole("separator", { name: "调整窗口右边缘" });
+  const canvas = container.querySelector<HTMLElement>(".island-canvas");
+  fireEvent.pointerEnter(canvas!);
+  installPointerCapture(rightHandle);
+  fireEvent.pointerDown(rightHandle, { button: 0, pointerId: 7, clientX: 100 });
+  fireEvent.pointerMove(rightHandle, { pointerId: 7, clientX: 160 });
+  expect(canvas).toHaveStyle({ width: "308px" });
+  fireEvent.pointerUp(rightHandle, { pointerId: 7, clientX: 160 });
+
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
+  expect(canvas).toHaveClass("island-canvas--collapsed");
+  expect(invokeMock).not.toHaveBeenCalledWith("set_island_mode", { mode: "expanded", motion: "elastic" });
+
+  await waitFor(() => {
+    expect(invokeMock).toHaveBeenCalledWith("set_island_width", {
+      mode: "collapsed",
+      width: 308,
+      fixedEdge: "left",
+    });
+  });
+});
+
+test("remembers separate capsule and expanded widths when switching modes", async () => {
+  const { container } = renderShell();
+  await waitFor(() => expect(screen.getByRole("button", { name: "折叠" })).toBeEnabled());
+  expect(container.querySelector<HTMLElement>(".island-canvas")?.style.width).toBe("560px");
+
+  fireEvent.click(screen.getByRole("button", { name: "折叠" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
+  expect(container.querySelector<HTMLElement>(".island-canvas")?.style.width).toBe("248px");
+});
+
+test("releases an expanded window below 420 into a capsule and keeps the dragged width", async () => {
+  renderShell();
+  const rightHandle = await screen.findByRole("separator", { name: "调整窗口右边缘" });
+  installPointerCapture(rightHandle);
+  fireEvent.pointerDown(rightHandle, { button: 0, pointerId: 8, clientX: 600 });
+  fireEvent.pointerMove(rightHandle, { pointerId: 8, clientX: 400 });
+  fireEvent.pointerUp(rightHandle, { pointerId: 8, clientX: 400 });
+
+  await waitFor(() => {
+    expect(invokeMock).toHaveBeenCalledWith("set_island_mode", { mode: "collapsed", motion: "elastic" });
+    expect(invokeMock).toHaveBeenCalledWith("set_island_width", {
+      mode: "collapsed",
+      width: 360,
+      fixedEdge: "left",
+    });
+  });
+});
+
+test("resizes expanded width and height together from a bottom corner", async () => {
+  renderShell();
+  const corner = await screen.findByRole("separator", { name: "调整窗口右下角" });
+  installPointerCapture(corner);
+  fireEvent.pointerDown(corner, { button: 0, pointerId: 9, clientX: 500, clientY: 300 });
+  fireEvent.pointerMove(corner, { pointerId: 9, clientX: 600, clientY: 360 });
+
+  await waitFor(() => {
+    expect(invokeMock).toHaveBeenCalledWith("set_island_width", {
+      mode: "expanded",
+      width: 660,
+      fixedEdge: "left",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("set_island_expanded_height", { height: 366 });
+  });
+});
+
+test("tucks from the capsule button and restores from the pure edge control", async () => {
+  const user = userEvent.setup();
+  invokeMock.mockImplementation((command: string) => {
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  });
+  const { container } = renderShell();
+
+  fireEvent.pointerEnter(container.querySelector<HTMLElement>(".island-canvas")!);
+  await user.click(await screen.findByRole("button", { name: "收缩到屏幕顶部" }));
+  expect(invokeMock).toHaveBeenCalledWith("set_island_tucked", { tucked: true });
+  const strip = await screen.findByRole("button", { name: "展开悬浮岛" });
+  expect(strip).toHaveClass("tuck-strip");
+
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
+  expect(invokeMock).not.toHaveBeenCalledWith("set_island_mode", { mode: "expanded", motion: "elastic" });
+
+  fireEvent.pointerEnter(strip);
+  await waitFor(() => {
+    expect(invokeMock).toHaveBeenCalledWith("set_island_tucked", { tucked: false });
+  });
+});
 
 function renderShell() {
   return render(
@@ -454,7 +563,7 @@ test("does not minimize while a native mode transition can still reshow the wind
   await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
 
   fireEvent.pointerEnter(canvas!);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 170)));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
   const minimize = await screen.findByRole("button", { name: "最小化到系统托盘" });
   expect(minimize).toBeDisabled();
   await user.click(minimize);
@@ -519,7 +628,9 @@ test("hover expands the compact island while double-click pins it until the app 
   await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
 
   fireEvent.pointerEnter(canvas!);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 170)));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+  expect(canvas).toHaveClass("island-canvas--collapsed");
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 250)));
   await waitFor(() => expect(canvas).toHaveClass("island-canvas--expanded"));
   expect(screen.getByRole("img", { name: "AIsland" })).toBeVisible();
   expect(viewport).toHaveClass("island-viewport--expanded");
@@ -534,7 +645,7 @@ test("hover expands the compact island while double-click pins it until the app 
   await waitFor(() => expect(canvas).toHaveClass("island-canvas--collapsed"));
 
   fireEvent.pointerEnter(canvas!);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 170)));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
   await waitFor(() => expect(canvas).toHaveClass("island-canvas--expanded"));
   fireEvent.doubleClick(canvas!);
   fireEvent.pointerLeave(canvas!);
@@ -559,7 +670,7 @@ test("renders the target visual mode while native animation is pending and rolls
   await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
 
   fireEvent.pointerEnter(canvas!);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 170)));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
   await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("set_island_mode", { mode: "expanded", motion: "elastic" }));
   expect(canvas).toHaveClass("island-canvas--expanded");
 
@@ -587,7 +698,7 @@ test("keeps the latest visual mode and clears pending when a superseded native a
   await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
 
   fireEvent.pointerEnter(canvas!);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 170)));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
   await waitFor(() => expect(canvas).toHaveClass("island-canvas--expanded"));
   fireEvent.pointerLeave(canvas!);
   await act(async () => new Promise((resolve) => setTimeout(resolve, 320)));
@@ -629,7 +740,7 @@ test("recovers the authoritative native mode when a newer animation fails after 
   await waitFor(() => expect(screen.getByRole("button", { name: /展开|Expand/i })).toBeEnabled());
 
   fireEvent.pointerEnter(canvas!);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 170)));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
   await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("set_island_mode", { mode: "expanded", motion: "elastic" }));
   fireEvent.pointerLeave(canvas!);
   await act(async () => new Promise((resolve) => setTimeout(resolve, 320)));
@@ -645,7 +756,7 @@ test("recovers the authoritative native mode when a newer animation fails after 
     nativeCollapse.reject(new Error("latest native animation failed"));
     await nativeCollapse.promise.catch(() => undefined);
   });
-  await waitFor(() => expect(initialStateReads).toBe(2));
+  await waitFor(() => expect(initialStateReads).toBe(3));
   await waitFor(() => expect(canvas).toHaveClass("island-canvas--expanded"));
 });
 
@@ -926,9 +1037,9 @@ test("opens any compact Agent logo into expanded Home with its selected task con
   const user = userEvent.setup();
   renderShell();
 
-  await user.click(await screen.findByRole("button", { name: /^claude/ }));
+  await user.click(await screen.findByRole("button", { name: /^Codex/ }));
   await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("set_island_mode", { mode: "expanded", motion: "elastic" }));
-  expect(screen.getByRole("region", { name: "claude" })).toHaveTextContent("claude-task");
+  expect(screen.getByRole("region", { name: "Codex" })).toHaveTextContent("codex-task");
 });
 
 test("re-entering Settings through its selected tab resets a nested settings route", async () => {
@@ -1065,17 +1176,19 @@ test("keeps the confirmed scale active until the native scale transaction succee
   });
   await user.click(screen.getByRole("tab", { name: "设置" }));
   await user.click(screen.getByRole("button", { name: "显示与外观" }));
-  await user.click(screen.getByRole("button", { name: "大" }));
+  const slider = screen.getByRole("slider", { name: "窗口缩放" });
+  fireEvent.change(slider, { target: { value: "75" } });
 
-  expect(screen.getByRole("button", { name: "中" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "大" })).toHaveAttribute("aria-pressed", "false");
+  expect(slider).toHaveValue("50");
+  expect(slider).toHaveAttribute("aria-valuetext", "100%");
 
   await act(async () => {
     nativeScale.resolve();
     await nativeScale.promise;
   });
 
-  expect(screen.getByRole("button", { name: "大" })).toHaveAttribute("aria-pressed", "true");
+  expect(slider).toHaveValue("75");
+  expect(slider).toHaveAttribute("aria-valuetext", "160%");
 });
 
 test("keeps the prior confirmed scale active when the native scale transaction rejects", async () => {
@@ -1095,15 +1208,16 @@ test("keeps the prior confirmed scale active when the native scale transaction r
   });
   await user.click(screen.getByRole("tab", { name: "设置" }));
   await user.click(screen.getByRole("button", { name: "显示与外观" }));
-  await user.click(screen.getByRole("button", { name: "大" }));
+  const slider = screen.getByRole("slider", { name: "窗口缩放" });
+  fireEvent.change(slider, { target: { value: "75" } });
 
   await act(async () => {
     nativeScale.reject(new Error("native rejected scale"));
     await nativeScale.promise.catch(() => undefined);
   });
 
-  expect(screen.getByRole("button", { name: "中" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "大" })).toHaveAttribute("aria-pressed", "false");
+  expect(slider).toHaveValue("50");
+  expect(slider).toHaveAttribute("aria-valuetext", "100%");
 });
 
 test("restores and persists glass transparency while updating the shell material", async () => {
@@ -1184,26 +1298,28 @@ test("confirms only the latest rapid scale selection after the single-flight req
   });
   await user.click(screen.getByRole("tab", { name: "设置" }));
   await user.click(screen.getByRole("button", { name: "显示与外观" }));
-  await user.click(screen.getByRole("button", { name: "大" }));
-  await user.click(screen.getByRole("button", { name: "特大" }));
+  const slider = screen.getByRole("slider", { name: "窗口缩放" });
+  fireEvent.change(slider, { target: { value: "60" } });
+  fireEvent.change(slider, { target: { value: "80" } });
 
-  expect(screen.getByRole("button", { name: "中" })).toHaveAttribute("aria-pressed", "true");
-  expect(requestedScales).toEqual([1.15]);
+  expect(slider).toHaveValue("50");
+  expect(requestedScales).toEqual([1.24]);
 
   await act(async () => {
     firstNativeScale.resolve();
     await firstNativeScale.promise;
   });
   await waitFor(() => {
-    expect(requestedScales).toEqual([1.15, 1.3]);
+    expect(requestedScales).toEqual([1.24, 1.72]);
   });
-  expect(screen.getByRole("button", { name: "中" })).toHaveAttribute("aria-pressed", "true");
+  expect(slider).toHaveValue("50");
 
   await act(async () => {
     secondNativeScale.resolve();
     await secondNativeScale.promise;
   });
-  expect(screen.getByRole("button", { name: "特大" })).toHaveAttribute("aria-pressed", "true");
+  expect(slider).toHaveValue("80");
+  expect(slider).toHaveAttribute("aria-valuetext", "172%");
 });
 
 test("acknowledges a real pending diagnostics tray sequence once after returning its nested route to root", async () => {

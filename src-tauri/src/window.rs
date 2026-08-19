@@ -1,12 +1,16 @@
 pub const COLLAPSED_WIDTH: f64 = 248.0;
 pub const COLLAPSED_HEIGHT: f64 = 46.0;
 pub const EXPANDED_WIDTH: f64 = 560.0;
+pub const MIN_COLLAPSED_WIDTH: f64 = 248.0;
+pub const MAX_COLLAPSED_WIDTH: f64 = 720.0;
+pub const MIN_EXPANDED_WIDTH: f64 = 420.0;
+pub const MAX_EXPANDED_WIDTH: f64 = 960.0;
 pub const DEFAULT_EXPANDED_HEIGHT: f64 = 306.0;
 pub const MAX_EXPANDED_HEIGHT: f64 = 640.0;
 pub const DEFAULT_MARGIN_Y: f64 = 12.0;
 pub const DEFAULT_SCALE: f64 = 1.0;
-pub const MIN_SCALE: f64 = 0.75;
-pub const MAX_SCALE: f64 = 1.4;
+pub const MIN_SCALE: f64 = 0.8;
+pub const MAX_SCALE: f64 = 2.2;
 pub const TUCKED_VISIBLE_EDGE: f64 = 10.0;
 pub const TUCK_THRESHOLD_Y: f64 = 2.0;
 pub const COLLAPSED_CORNER_RADIUS: f64 = COLLAPSED_HEIGHT / 2.0;
@@ -120,6 +124,8 @@ pub struct IslandWindowState {
     pub mode: IslandMode,
     pub is_tucked: bool,
     pub scale: f64,
+    pub collapsed_width: f64,
+    pub expanded_width: f64,
     pub expanded_height: f64,
     pub margin_y: f64,
     pub saved_visible_placement: Option<SavedPlacement>,
@@ -131,6 +137,8 @@ impl Default for IslandWindowState {
             mode: IslandMode::Collapsed,
             is_tucked: false,
             scale: DEFAULT_SCALE,
+            collapsed_width: COLLAPSED_WIDTH,
+            expanded_width: EXPANDED_WIDTH,
             expanded_height: DEFAULT_EXPANDED_HEIGHT,
             margin_y: DEFAULT_MARGIN_Y,
             saved_visible_placement: None,
@@ -146,6 +154,77 @@ pub fn clamp_scale(scale: f64) -> f64 {
     }
 }
 
+pub fn clamp_mode_width(mode: IslandMode, width: f64) -> f64 {
+    let (minimum, maximum, fallback) = match mode {
+        IslandMode::Collapsed => (MIN_COLLAPSED_WIDTH, MAX_COLLAPSED_WIDTH, COLLAPSED_WIDTH),
+        IslandMode::Expanded => (MIN_EXPANDED_WIDTH, MAX_EXPANDED_WIDTH, EXPANDED_WIDTH),
+    };
+    if width.is_finite() {
+        width.clamp(minimum, maximum)
+    } else {
+        fallback
+    }
+}
+
+pub fn clamp_width_to_work_area(
+    mode: IslandMode,
+    width: f64,
+    scale: f64,
+    dpi: f64,
+    work_area_physical_width: u32,
+    margin: f64,
+) -> f64 {
+    let scale = clamp_scale(scale);
+    let dpi = if dpi.is_finite() && dpi > 0.0 {
+        dpi
+    } else {
+        1.0
+    };
+    let margin = if margin.is_finite() {
+        margin.max(0.0)
+    } else {
+        0.0
+    };
+    let available_logical = work_area_physical_width as f64 / dpi - margin * 2.0;
+    let maximum_for_work_area = (available_logical / scale).max(0.0);
+    let minimum = match mode {
+        IslandMode::Collapsed => MIN_COLLAPSED_WIDTH,
+        IslandMode::Expanded => MIN_EXPANDED_WIDTH,
+    };
+    clamp_mode_width(mode, width)
+        .min(maximum_for_work_area)
+        .max(minimum)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FixedHorizontalEdge {
+    Left,
+    Right,
+}
+
+impl FixedHorizontalEdge {
+    pub fn from_value(value: &str) -> Result<Self, String> {
+        match value {
+            "left" => Ok(Self::Left),
+            "right" => Ok(Self::Right),
+            _ => Err(format!("Unsupported fixed horizontal edge: {value}")),
+        }
+    }
+}
+
+pub fn resized_x_for_fixed_edge(
+    current_x: i32,
+    current_width: u32,
+    new_width: u32,
+    fixed_edge: FixedHorizontalEdge,
+) -> i32 {
+    match fixed_edge {
+        FixedHorizontalEdge::Left => current_x,
+        FixedHorizontalEdge::Right => (current_x as i64 + current_width as i64 - new_width as i64)
+            .clamp(i32::MIN as i64, i32::MAX as i64) as i32,
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NativeWindowMaterial {
     Clear,
@@ -156,14 +235,22 @@ pub fn native_window_material_for_glass_transparency(_transparency: i32) -> Nati
 }
 
 pub fn collapsed_size(scale: f64) -> LogicalWindowSize {
+    collapsed_size_with_width(scale, COLLAPSED_WIDTH)
+}
+
+pub fn collapsed_size_with_width(scale: f64, width: f64) -> LogicalWindowSize {
     let scale = clamp_scale(scale);
     LogicalWindowSize {
-        width: COLLAPSED_WIDTH * scale,
+        width: clamp_mode_width(IslandMode::Collapsed, width) * scale,
         height: COLLAPSED_HEIGHT * scale,
     }
 }
 
 pub fn expanded_size(scale: f64, expanded_height: f64) -> LogicalWindowSize {
+    expanded_size_with_width(scale, EXPANDED_WIDTH, expanded_height)
+}
+
+pub fn expanded_size_with_width(scale: f64, width: f64, expanded_height: f64) -> LogicalWindowSize {
     let scale = clamp_scale(scale);
     let height = if expanded_height.is_finite() {
         expanded_height.clamp(DEFAULT_EXPANDED_HEIGHT, MAX_EXPANDED_HEIGHT)
@@ -171,15 +258,17 @@ pub fn expanded_size(scale: f64, expanded_height: f64) -> LogicalWindowSize {
         DEFAULT_EXPANDED_HEIGHT
     };
     LogicalWindowSize {
-        width: EXPANDED_WIDTH * scale,
+        width: clamp_mode_width(IslandMode::Expanded, width) * scale,
         height: height * scale,
     }
 }
 
 pub fn logical_size_for_state(state: &IslandWindowState) -> LogicalWindowSize {
     match state.mode {
-        IslandMode::Collapsed => collapsed_size(state.scale),
-        IslandMode::Expanded => expanded_size(state.scale, state.expanded_height),
+        IslandMode::Collapsed => collapsed_size_with_width(state.scale, state.collapsed_width),
+        IslandMode::Expanded => {
+            expanded_size_with_width(state.scale, state.expanded_width, state.expanded_height)
+        }
     }
 }
 
@@ -380,9 +469,70 @@ mod tests {
     }
 
     #[test]
+    fn window_widths_are_independent_and_follow_each_mode_range() {
+        let defaults = IslandWindowState::default();
+        assert_close(defaults.collapsed_width, 248.0);
+        assert_close(defaults.expanded_width, 560.0);
+
+        assert_close(clamp_mode_width(IslandMode::Collapsed, 100.0), 248.0);
+        assert_close(clamp_mode_width(IslandMode::Collapsed, 900.0), 720.0);
+        assert_close(clamp_mode_width(IslandMode::Expanded, 100.0), 420.0);
+        assert_close(clamp_mode_width(IslandMode::Expanded, 1_200.0), 960.0);
+
+        let collapsed = IslandWindowState {
+            collapsed_width: 420.0,
+            expanded_width: 880.0,
+            ..IslandWindowState::default()
+        };
+        assert_close(logical_size_for_state(&collapsed).width, 420.0);
+
+        let expanded = IslandWindowState {
+            mode: IslandMode::Expanded,
+            collapsed_width: 420.0,
+            expanded_width: 880.0,
+            ..IslandWindowState::default()
+        };
+        assert_close(logical_size_for_state(&expanded).width, 880.0);
+    }
+
+    #[test]
+    fn monitor_work_area_caps_scaled_width_before_the_window_can_leave_screen() {
+        assert_close(
+            clamp_width_to_work_area(IslandMode::Expanded, 960.0, 2.2, 1.0, 1920, 12.0),
+            861.8181818181818,
+        );
+        assert_close(
+            clamp_width_to_work_area(IslandMode::Collapsed, 720.0, 1.0, 1.5, 1920, 12.0),
+            720.0,
+        );
+    }
+
+    #[test]
+    fn horizontal_resize_keeps_the_opposite_edge_fixed() {
+        assert_eq!(
+            FixedHorizontalEdge::from_value("left"),
+            Ok(FixedHorizontalEdge::Left)
+        );
+        assert_eq!(
+            FixedHorizontalEdge::from_value("right"),
+            Ok(FixedHorizontalEdge::Right)
+        );
+        assert!(FixedHorizontalEdge::from_value("center").is_err());
+        assert_eq!(
+            resized_x_for_fixed_edge(100, 560, 720, FixedHorizontalEdge::Left),
+            100
+        );
+        assert_eq!(
+            resized_x_for_fixed_edge(100, 560, 720, FixedHorizontalEdge::Right),
+            -60
+        );
+    }
+
+    #[test]
     fn clamp_scale_handles_bounds_and_non_finite_values() {
-        assert_close(clamp_scale(0.5), 0.75);
-        assert_close(clamp_scale(2.0), 1.4);
+        assert_close(clamp_scale(0.5), 0.8);
+        assert_close(clamp_scale(3.0), 2.2);
+        assert_close(clamp_scale(2.0), 2.0);
         assert_close(clamp_scale(1.15), 1.15);
         assert_close(clamp_scale(f64::NAN), 1.0);
     }
