@@ -84,10 +84,12 @@ A Custom Hook is a compatibility path, not a replacement for a native adapter. S
 ### Windows utilities
 
 - Notification center: browse Windows notifications and filter them by source or unread state.
-- Daily Markdown notes: save notes by date, search them, copy or export them, and open the notes folder.
+- Daily Markdown notes: save notes by date, search, copy, export, or open the notes folder; expand a calendar to find dates with text or recordings, and manually record multiple local clips from the system's default microphone.
 - Clipboard history: manage text and image entries with search, filters, pinning, copy, and delete actions.
 - System monitor: view CPU, memory, disk, network, and GPU activity.
-- Tray and startup controls: hide AIsland in the system tray and manage startup, language, scaling, and appearance from Settings.
+- Tray and startup controls: hide AIsland in the system tray and manage startup, language, scaling, and appearance from Settings. Display and Appearance includes six circular background previews, independent glass transparency, and real previews for Elastic, Smooth, and Swift expansion motion.
+
+Daily-note text and recordings are independent: deleting the day's text does not delete its recordings, and a recording-only date still receives a calendar content marker. Before changing dates or leaving Daily Notes, AIsland finishes the pending text save and active recording; a recoverable failure keeps the current page available for retry.
 
 <p align="center">
   <img src="docs/images/readme-system-monitor.png" alt="AIsland system monitor">

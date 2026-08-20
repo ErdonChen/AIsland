@@ -1119,13 +1119,15 @@ test("keeps a pending daily-note draft alive while another shell tab is active",
   await act(async () => { vi.advanceTimersByTime(600); await Promise.resolve(); });
 
   expect(invokeMock).toHaveBeenCalledWith("createNote", expect.objectContaining({ bodyMarkdown: "kept while hidden" }));
-  fireEvent.click(screen.getByRole("tab", { name: "每日笔记" }));
-  expect(screen.getByRole("textbox", { name: "每日笔记" })).toHaveValue("kept while hidden");
+  expect(screen.getByRole("tab", { name: "每日笔记" })).toHaveAttribute("aria-selected", "true");
 
   await act(async () => {
     create.resolve({ id: "note-kept", noteDate: "2026-08-13", bodyMarkdown: "kept while hidden", revision: 1, createdAt: 1, updatedAt: 2 });
     await create.promise;
   });
+  await waitFor(() => expect(screen.getByRole("tab", { name: "主页" })).toHaveAttribute("aria-selected", "true"));
+  fireEvent.click(screen.getByRole("tab", { name: "每日笔记" }));
+  expect(screen.getByRole("textbox", { name: "每日笔记" })).toHaveValue("kept while hidden");
   vi.useRealTimers();
 });
 
@@ -1146,6 +1148,7 @@ test("keeps a failed daily-note draft across tab changes and shell collapse", as
   fireEvent.change(await screen.findByRole("textbox", { name: "每日笔记" }), { target: { value: "retry after returning" } });
   fireEvent.click(screen.getByRole("tab", { name: "主页" }));
   await act(async () => { vi.advanceTimersByTime(600); await Promise.resolve(); await Promise.resolve(); });
+  expect(screen.getByRole("tab", { name: "每日笔记" })).toHaveAttribute("aria-selected", "true");
   fireEvent.click(screen.getByRole("button", { name: "折叠" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
   expect(screen.queryByRole("textbox", { name: "每日笔记" })).not.toBeInTheDocument();
@@ -1246,6 +1249,39 @@ test("restores and persists glass transparency while updating the shell material
   });
 });
 
+test("restores and persists an accessible shell background palette independently from transparency", async () => {
+  localStorage.setItem("aisland.display.backgroundColor.v1", "pine");
+  const user = userEvent.setup();
+  const { container } = renderShell();
+
+  await waitFor(() => {
+    expect(screen.getByRole("tab", { name: "设置" })).toBeEnabled();
+  });
+  const canvas = container.querySelector<HTMLElement>(".island-canvas");
+  expect(canvas).toHaveAttribute("data-background-color", "pine");
+  expect(canvas?.style.getPropertyValue("--glass-shell-rgb")).toBe("23 42 36");
+
+  await user.click(screen.getByRole("tab", { name: "设置" }));
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+
+  expect(screen.getByRole("group", { name: "背景颜色" })).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /午夜黑|深海蓝|石墨蓝|松针绿|星云紫|暖岩棕/ })).toHaveLength(6);
+  expect(screen.getByRole("button", { name: "松针绿" })).toHaveAttribute("aria-pressed", "true");
+
+  await user.click(screen.getByRole("button", { name: "星云紫" }));
+
+  expect(screen.getByRole("button", { name: "星云紫" })).toHaveAttribute("aria-pressed", "true");
+  expect(canvas).toHaveAttribute("data-background-color", "nebula");
+  expect(canvas?.style.getPropertyValue("--glass-shell-rgb")).toBe("40 29 53");
+  expect(localStorage.getItem("aisland.display.backgroundColor.v1")).toBe("nebula");
+  expect(screen.getByRole("slider", { name: "玻璃透明度" })).toHaveValue("58");
+
+  fireEvent.change(screen.getByRole("slider", { name: "玻璃透明度" }), { target: { value: "100" } });
+  expect(canvas?.style.getPropertyValue("--glass-shell-alpha")).toBe("0");
+  expect(canvas?.style.getPropertyValue("--glass-shell-rgb")).toBe("40 29 53");
+  expect(localStorage.getItem("aisland.display.backgroundColor.v1")).toBe("nebula");
+});
+
 test("restores and persists the selected production expansion motion", async () => {
   localStorage.setItem("aisland.display.expansionMotion.v1", "smooth");
   const user = userEvent.setup();
@@ -1274,6 +1310,61 @@ test("restores and persists the selected production expansion motion", async () 
   await waitFor(() => {
     expect(invokeMock).toHaveBeenCalledWith("set_island_mode", { mode: "collapsed", motion: "swift" });
   });
+});
+
+test("previews the real collapse and expansion motion without leaving display settings", async () => {
+  const user = userEvent.setup();
+  renderShell();
+
+  await waitFor(() => expect(screen.getByRole("tab", { name: "设置" })).toBeEnabled());
+  await user.click(screen.getByRole("tab", { name: "设置" }));
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+  await user.click(screen.getByRole("button", { name: "柔和舒展" }));
+
+  const preview = screen.getByRole("button", { name: "预览展开动效" });
+  await user.click(preview);
+
+  await waitFor(() => {
+    const modeRequests = invokeMock.mock.calls.filter(([command]) => command === "set_island_mode");
+    expect(modeRequests.slice(-2)).toEqual([
+      ["set_island_mode", { mode: "collapsed", motion: "smooth" }],
+      ["set_island_mode", { mode: "expanded", motion: "smooth" }],
+    ]);
+  });
+  expect(screen.getByRole("heading", { name: "显示与外观" })).toBeInTheDocument();
+  expect(preview).toBeEnabled();
+});
+
+test("prevents overlapping expansion previews and surfaces a recoverable native failure", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const nativeCollapse = deferred<void>();
+  invokeMock.mockImplementation((command: string, args?: { mode?: string }) => {
+    if (command === "get_initial_state") return Promise.resolve(INITIAL_STATE);
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    if (command === "set_island_mode" && args?.mode === "collapsed") return nativeCollapse.promise;
+    return Promise.resolve(undefined);
+  });
+  const user = userEvent.setup();
+  renderShell();
+
+  await waitFor(() => expect(screen.getByRole("tab", { name: "设置" })).toBeEnabled());
+  await user.click(screen.getByRole("tab", { name: "设置" }));
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+
+  const preview = screen.getByRole("button", { name: "预览展开动效" });
+  await user.click(preview);
+  expect(preview).toBeDisabled();
+  await user.click(preview);
+  expect(invokeMock.mock.calls.filter(([command, args]) => command === "set_island_mode" && args?.mode === "collapsed")).toHaveLength(1);
+
+  await act(async () => {
+    nativeCollapse.reject(new Error("native preview failed"));
+    await nativeCollapse.promise.catch(() => undefined);
+  });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("展开动效预览失败，请重试");
+  expect(screen.getByRole("heading", { name: "显示与外观" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "预览展开动效" })).toBeEnabled();
 });
 
 test("confirms only the latest rapid scale selection after the single-flight requests settle", async () => {

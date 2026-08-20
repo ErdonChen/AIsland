@@ -468,7 +468,7 @@ mod tests {
     fn migration_five_is_recorded_when_storage_opens() {
         let d = tempfile::tempdir().unwrap();
         let s = Storage::open(d.path()).unwrap();
-        assert_eq!(s.schema_version().unwrap(), 10);
+        assert_eq!(s.schema_version().unwrap(), 11);
         drop(s);
         Storage::open(d.path()).unwrap().with_connection(|c| {
             assert_eq!(c.query_row("SELECT COUNT(*) FROM schema_migrations WHERE version=5 AND name='monitor_notifications'", [], |r| r.get::<_, i64>(0))?, 1);

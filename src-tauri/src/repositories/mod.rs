@@ -3,6 +3,7 @@ pub mod app_settings;
 pub mod clipboard;
 pub mod diagnostics;
 pub mod monitor;
+pub mod note_recordings;
 pub mod notes;
 pub mod notifications;
 pub mod reminders;

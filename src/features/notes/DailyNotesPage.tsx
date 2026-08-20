@@ -1,5 +1,5 @@
 import { Copy, Download, FolderOpen, RotateCcw, Search, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import { parseCommandError } from "../../api/commandError";
 import { createNote, deleteNote, exportNoteMarkdown, getDailyNote, getNote, listNotes, openNoteDirectory, updateNote } from "../../api/commands";
@@ -7,11 +7,18 @@ import type { CommandError, LocalDate, NoteDocument, NoteSummary } from "../../a
 import { listenNoteChanged } from "../../api/events";
 import { useI18n } from "../../i18n/I18nProvider";
 import { translateRegisteredMessage } from "../../i18n/catalog";
+import NoteCalendar from "./NoteCalendar";
+import NoteRecordingPanel, { type NoteRecordingPanelHandle } from "./NoteRecordingPanel";
 import "./notes.css";
 
 export interface DailyNotesPageProps {
   initialDate?: LocalDate;
   autosaveDelayMs?: number;
+  active?: boolean;
+}
+
+export interface DailyNotesPageHandle {
+  prepareToLeave(): Promise<boolean>;
 }
 
 type AutosaveState = "clean" | "dirty" | "saving" | "failed";
@@ -52,7 +59,10 @@ function applyDocument(entry: NoteEntry, document: NoteDocument | null) {
   entry.loading = false;
 }
 
-export default function DailyNotesPage({ initialDate = localToday(), autosaveDelayMs = 600 }: DailyNotesPageProps): React.JSX.Element {
+const DailyNotesPage = forwardRef<DailyNotesPageHandle, DailyNotesPageProps>(function DailyNotesPage(
+  { initialDate = localToday(), autosaveDelayMs = 600, active = true },
+  forwardedRef,
+): React.JSX.Element {
   const { language, t } = useI18n();
   const entriesRef = useRef(new Map<LocalDate, NoteEntry>());
   const selectedDateRef = useRef<LocalDate>(initialDate);
@@ -62,6 +72,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
   const searchTokenRef = useRef(0);
   const actionTokenRef = useRef(0);
   const actionInFlightRef = useRef(false);
+  const recordingPanelRef = useRef<NoteRecordingPanelHandle>(null);
   const [selectedDate, setSelectedDate] = useState<LocalDate>(initialDate);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<NoteSummary[]>([]);
@@ -70,6 +81,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
   const [editorLocked, setEditorLocked] = useState(false);
   const [copySucceeded, setCopySucceeded] = useState(false);
   const [exportedPath, setExportedPath] = useState<string | null>(null);
+  const [contentVersion, setContentVersion] = useState(0);
   const [, setVersion] = useState(0);
 
   const entryFor = useCallback((date: LocalDate) => {
@@ -131,6 +143,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
         entry.error = null;
         entry.errorContext = null;
         entry.state = entry.draft === capturedDraft ? "clean" : "dirty";
+        setContentVersion((value) => value + 1);
         refresh();
         if (entry.state === "dirty" && selectedDateRef.current === date) scheduleAutosaveRef.current(date);
         return true;
@@ -170,6 +183,13 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
       if (!await saveEntry(date, entry)) return false;
     }
   }, [clearAutosave, saveEntry]);
+
+  const prepareToLeave = useCallback(async (): Promise<boolean> => {
+    const date = selectedDateRef.current;
+    if (recordingPanelRef.current && !await recordingPanelRef.current.stop()) return false;
+    return flushEntry(date, entryFor(date));
+  }, [entryFor, flushEntry]);
+  useImperativeHandle(forwardedRef, () => ({ prepareToLeave }), [prepareToLeave]);
 
   const loadDate = useCallback(async (date: LocalDate, cleanOnly = false): Promise<boolean> => {
     const entry = entryFor(date);
@@ -215,6 +235,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
     void (async () => {
       try {
         const stop = await listenNoteChanged(() => {
+          setContentVersion((value) => value + 1);
           const date = selectedDateRef.current;
           const entry = entriesRef.current.get(date);
           if (active && lifecycleRef.current === lifecycle && entry?.state === "clean") void loadDate(date, true);
@@ -248,15 +269,17 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
   }, [clearAutosave, entryFor, loadDate, refresh]);
 
   const changeDate = async (nextDate: LocalDate) => {
-    if (actionInFlightRef.current || !nextDate || nextDate === selectedDateRef.current) return;
+    if (actionInFlightRef.current || !nextDate || nextDate === selectedDateRef.current) return false;
     const currentDate = selectedDateRef.current;
-    if (!await flushEntry(currentDate, entryFor(currentDate))) return;
+    if (recordingPanelRef.current && !await recordingPanelRef.current.stop()) return false;
+    if (!await flushEntry(currentDate, entryFor(currentDate))) return false;
     selectedDateRef.current = nextDate;
     setSelectedDate(nextDate);
     setExportedPath(null);
     entryFor(nextDate);
     refresh();
     void loadDate(nextDate);
+    return true;
   };
 
   const changeDraft = (draft: string) => {
@@ -303,6 +326,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
     const priorDate = selectedDateRef.current;
     const priorEntry = entryFor(priorDate);
     try {
+      if (recordingPanelRef.current && !await recordingPanelRef.current.stop()) return;
       if (!await flushEntry(priorDate, priorEntry)) return;
       const priorEditGeneration = priorEntry.editGeneration;
       const document = await getNote({ id: summary.id });
@@ -313,6 +337,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
       selectedDateRef.current = document.noteDate;
       setSelectedDate(document.noteDate);
       setExportedPath(null);
+      setContentVersion((value) => value + 1);
       refresh();
     } catch (cause) {
       if (actionTokenRef.current === token) { const entry = entryFor(selectedDateRef.current); entry.error = parseCommandError(cause); entry.errorContext = "action"; refresh(); }
@@ -407,6 +432,7 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
         scheduleAutosave(date);
       }
       setExportedPath(null);
+      setContentVersion((value) => value + 1);
       refresh();
     } catch (cause) {
       if (actionTokenRef.current === token) { entry.error = parseCommandError(cause); entry.errorContext = "action"; refresh(); }
@@ -434,8 +460,15 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
       <label className="notes-date"><span>{t("notes.field.date")}</span><input type="date" value={selectedDate} disabled={actionPending} onChange={(event) => void changeDate(event.target.value)} /></label>
       <label className="notes-search"><Search size={13} aria-hidden="true" /><span className="sr-only">{t("notes.field.search")}</span><input type="search" aria-label={t("notes.field.search")} value={searchQuery} placeholder={t("notes.search.placeholder")} onChange={(event) => setSearchQuery(event.target.value)} /></label>
     </div>
+    <NoteCalendar selectedDate={selectedDate} onSelectDate={changeDate} contentVersion={contentVersion} />
     {searchQuery && <div className="notes-results" aria-busy={searchPending || undefined}>{!searchPending && searchResults.length === 0 ? <p>{t("notes.empty.search")}</p> : searchResults.map((result) => <button type="button" key={result.id} disabled={actionPending} onClick={() => void openResult(result)}><time>{result.noteDate}</time><span>{result.excerpt}</span></button>)}</div>}
     <label className="notes-editor"><span className="sr-only">{t("notes.title")}</span><textarea aria-label={t("notes.title")} placeholder={t("notes.editor.placeholder")} value={entry.draft} disabled={editorLocked || entry.loading} spellCheck="true" onChange={(event) => changeDraft(event.target.value)} /></label>
+    <NoteRecordingPanel
+      ref={recordingPanelRef}
+      noteDate={selectedDate}
+      active={active}
+      onContentChanged={() => setContentVersion((value) => value + 1)}
+    />
     {renderedError && <div className="notes-error" role="alert"><span>{renderedError}</span>{(entry.state === "failed" || entry.loading) && <button type="button" disabled={actionPending} onClick={() => void (entry.loading ? loadDate(selectedDate) : saveEntry(selectedDate, entry))}><RotateCcw size={12} />{t("action.retry")}</button>}</div>}
     {copySucceeded && <p className="notes-copy-success" role="status">{t("notes.copy.success")}</p>}
     {exportedPath && <p className="notes-export-path"><span>{t("notes.export.success")}</span><code>{exportedPath}</code></p>}
@@ -446,4 +479,6 @@ export default function DailyNotesPage({ initialDate = localToday(), autosaveDel
       <button className="notes-delete" type="button" disabled={actionPending || entry.id === null} onClick={() => void removeNote()}><Trash2 size={13} />{t("notes.action.delete")}</button>
     </footer>
   </section>;
-}
+});
+
+export default DailyNotesPage;

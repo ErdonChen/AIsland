@@ -15,6 +15,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Public repository and updater links now use `ErdonChen/AIsland`.
 
+## [0.1.0-preview.6] - 2026-08-20
+
+### Added
+
+- Added six application background color presets under Display and Appearance,
+  each with a circular preview swatch and independent glass transparency.
+- Added manual microphone recording to Daily Notes. Recordings are stored
+  locally by note date, support multiple clips, and can be played or deleted
+  independently without requiring a text note.
+- Added a collapsible, Monday-first six-week calendar to Daily Notes, including
+  month navigation, keyboard navigation, and markers for dates containing text
+  or recordings.
+
+### Changed
+
+- Connected the Elastic, Smooth, and Swift expansion choices to distinct native
+  window animations and added an in-settings preview action.
+- Daily Notes now finish pending text saves and active recordings before date
+  or page navigation; recoverable failures keep the user on the current note.
+
+### Fixed
+
+- Prevented encoder failures and incomplete recording assets from appearing as
+  successful playable recordings.
+
 ## [0.1.0-preview.5] - 2026-08-19
 
 ### Added

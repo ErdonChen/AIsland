@@ -17,6 +17,7 @@ pub mod monitor_sampler;
 pub mod native_agent_activity;
 pub mod native_profile_activity;
 pub mod note_export_directory;
+pub mod note_recording_assets;
 pub mod notification_history;
 pub mod process_metrics;
 pub mod product_settings;
@@ -39,7 +40,8 @@ use crate::events::{
 };
 use crate::repositories::{
     agents::AgentRepository, app_settings::AppSettingsRepository,
-    diagnostics::DiagnosticsRepository, monitor::MonitorRepository, notes::NoteRepository,
+    diagnostics::DiagnosticsRepository, monitor::MonitorRepository,
+    note_recordings::NoteRecordingRepository, notes::NoteRepository,
     notifications::NotificationRepository, reminders::ReminderRepository,
     service_health::ServiceHealthRepository,
 };
@@ -600,6 +602,8 @@ pub struct AppServices {
     pub agent_profiles: Arc<agent_profiles::AgentProfileService>,
     pub reminders: ReminderRepository,
     pub notes: NoteRepository,
+    pub note_recordings: NoteRecordingRepository,
+    pub note_recording_assets: note_recording_assets::NoteRecordingAssetStore,
     pub monitor: MonitorRepository,
     pub notifications: NotificationRepository,
     pub notification_history: Arc<notification_history::NotificationHistoryService>,
@@ -681,6 +685,8 @@ impl AppServices {
             "the application must install one Toast activation handler"
         );
         let clipboard_assets = clipboard_assets::ClipboardAssetStore::new(&app_data_dir)?;
+        let note_recording_assets =
+            note_recording_assets::NoteRecordingAssetStore::new(&app_data_dir)?;
         let services = Self::from_parts_internal(
             storage.clone(),
             Arc::new(BootstrapModuleStateProvider),
@@ -690,6 +696,7 @@ impl AppServices {
             Arc::new(BootstrapMarkdownExportDirectoryProvider),
             health.clone(),
             clipboard_assets,
+            note_recording_assets,
             Some((channels, channel_worker)),
             toast_activation.clone(),
             toast_registration.clone(),
@@ -1282,6 +1289,8 @@ impl AppServices {
             ServiceHealthRepository::new(storage),
             clipboard_assets::ClipboardAssetStore::new(&app_storage)
                 .expect("test storage must accept its clipboard asset directory"),
+            note_recording_assets::NoteRecordingAssetStore::new(&app_storage)
+                .expect("test storage must accept its note recording directory"),
             None,
             Arc::new(reminder_channels::ToastActivationPort::default()),
             Arc::new(reminder_channels::ToastRegistrationState::default()),
@@ -1313,6 +1322,8 @@ impl AppServices {
             ServiceHealthRepository::new(storage),
             clipboard_assets::ClipboardAssetStore::new(&app_storage)
                 .expect("test storage must accept its clipboard asset directory"),
+            note_recording_assets::NoteRecordingAssetStore::new(&app_storage)
+                .expect("test storage must accept its note recording directory"),
             None,
             Arc::new(reminder_channels::ToastActivationPort::default()),
             Arc::new(reminder_channels::ToastRegistrationState::default()),
@@ -1329,6 +1340,7 @@ impl AppServices {
         markdown_export_directory: Arc<dyn MarkdownExportDirectoryProvider>,
         health: ServiceHealthRepository,
         clipboard_assets: clipboard_assets::ClipboardAssetStore,
+        note_recording_assets: note_recording_assets::NoteRecordingAssetStore,
         channel_bundle: Option<(
             Arc<reminder_channels::ReminderChannelService>,
             reminder_channels::ReminderChannelWorker,
@@ -1341,6 +1353,7 @@ impl AppServices {
         let (shutdown_completion, _) = tokio::sync::watch::channel(None);
         let reminders = ReminderRepository::new(storage.clone());
         let notes = NoteRepository::new(storage.clone());
+        let note_recordings = NoteRecordingRepository::new(storage.clone());
         let monitor = MonitorRepository::new(storage.clone());
         let notifications = NotificationRepository::new(storage.clone());
         let notification_history =
@@ -1418,6 +1431,8 @@ impl AppServices {
             agent_profiles,
             reminders,
             notes,
+            note_recordings,
+            note_recording_assets,
             monitor,
             notifications,
             notification_history,

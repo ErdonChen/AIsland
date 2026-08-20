@@ -29,6 +29,15 @@ macro_rules! note_command_manifest {
             listNotes => listNotes,
             getNote => getNote,
             getDailyNote => getDailyNote,
+            startNoteRecording => startNoteRecording,
+            appendNoteRecordingChunk => appendNoteRecordingChunk,
+            finishNoteRecording => finishNoteRecording,
+            listNoteRecordings => listNoteRecordings,
+            listNoteContentDates => listNoteContentDates,
+            readNoteRecording => readNoteRecording,
+            abortNoteRecording => abortNoteRecording,
+            deleteNoteRecording => deleteNoteRecording,
+            recoverNoteRecordings => recoverNoteRecordings,
             createNote => createNote,
             updateNote => updateNote,
             deleteNote => deleteNote,
@@ -41,6 +50,15 @@ macro_rules! note_command_manifest {
             listNotes => listNotes,
             getNote => getNote,
             getDailyNote => getDailyNote,
+            startNoteRecording => startNoteRecording,
+            appendNoteRecordingChunk => appendNoteRecordingChunk,
+            finishNoteRecording => finishNoteRecording,
+            listNoteRecordings => listNoteRecordings,
+            listNoteContentDates => listNoteContentDates,
+            readNoteRecording => readNoteRecording,
+            abortNoteRecording => abortNoteRecording,
+            deleteNoteRecording => deleteNoteRecording,
+            recoverNoteRecordings => recoverNoteRecordings,
             createNote => createNote,
             updateNote => updateNote,
             deleteNote => deleteNote,
@@ -174,7 +192,7 @@ pub const REMINDER_COMMAND_NAMES: [&str; 11] = [
     "acknowledgeReminderNavigation",
 ];
 
-pub const NOTE_COMMAND_NAMES: [&str; 8] = note_command_manifest!(command_names);
+pub const NOTE_COMMAND_NAMES: [&str; 17] = note_command_manifest!(command_names);
 pub const CLIPBOARD_COMMAND_NAMES: [&str; 6] = clipboard_command_manifest!(command_names);
 pub const SETTINGS_UPDATE_COMMAND_NAMES: [&str; 4] = [
     "getGeneralSettings",

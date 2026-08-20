@@ -1,5 +1,6 @@
 export type IslandMode = "collapsed" | "expanded";
 export type IslandExpansionMotion = "elastic" | "smooth" | "swift";
+export type IslandBackgroundColor = "midnight" | "ocean" | "graphite" | "pine" | "nebula" | "rock";
 export type IslandPage =
   | "home"
   | "note"

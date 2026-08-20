@@ -35,6 +35,9 @@ import type {
   NotificationHistoryItem,
   ListNotesInput,
   NoteDocument,
+  NoteDateContentSummary,
+  NoteRecording,
+  NoteRecordingPayload,
   NoteSummary,
   PendingReminderNavigation,
   ReminderActionInput,
@@ -243,6 +246,42 @@ export function getNote(input: { id: string }): Promise<NoteDocument> {
 
 export function getDailyNote(input: { noteDate: string }): Promise<NoteDocument | null> {
   return invokeCommand("getDailyNote", { ...input });
+}
+
+export function startNoteRecording(input: { noteDate: string; mimeType: string; fileExtension: string; startedAt: number }): Promise<NoteRecording> {
+  return invokeCommand("startNoteRecording", { ...input });
+}
+
+export function appendNoteRecordingChunk(input: { id: string; chunk: number[] }): Promise<void> {
+  return invokeCommand("appendNoteRecordingChunk", { ...input });
+}
+
+export function finishNoteRecording(input: { id: string; durationMs: number; expectedRevision: number }): Promise<NoteRecording> {
+  return invokeCommand("finishNoteRecording", { ...input });
+}
+
+export function listNoteRecordings(input: { noteDate: string }): Promise<NoteRecording[]> {
+  return invokeCommand("listNoteRecordings", { ...input });
+}
+
+export function listNoteContentDates(input: { startDate: string; endDate: string }): Promise<NoteDateContentSummary[]> {
+  return invokeCommand("listNoteContentDates", { ...input });
+}
+
+export function readNoteRecording(input: { id: string }): Promise<NoteRecordingPayload> {
+  return invokeCommand("readNoteRecording", { ...input });
+}
+
+export function abortNoteRecording(input: { id: string; expectedRevision: number }): Promise<DeleteResult> {
+  return invokeCommand("abortNoteRecording", { ...input });
+}
+
+export function deleteNoteRecording(input: { id: string; expectedRevision: number }): Promise<DeleteResult> {
+  return invokeCommand("deleteNoteRecording", { ...input });
+}
+
+export function recoverNoteRecordings(): Promise<number> {
+  return invokeCommand("recoverNoteRecordings");
 }
 
 export function createNote(input: CreateNoteInput): Promise<NoteDocument> {

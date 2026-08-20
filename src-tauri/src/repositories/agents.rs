@@ -449,6 +449,7 @@ mod tests {
                 (8, "agent_attention_statuses".into()),
                 (9, "agent_profile_reply_previews".into()),
                 (10, "cursor_hook_profile".into()),
+                (11, "note_recordings".into()),
             ]
         );
     }

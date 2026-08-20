@@ -52,6 +52,9 @@ export interface TodoItem { id: EntityId; title: string; description: string; du
 export interface TodoReminder { id: EntityId; todoId: EntityId; remindAt: UnixMillis; enabled: boolean; revision: Revision; createdAt: UnixMillis; updatedAt: UnixMillis; }
 export interface NoteSummary { id: EntityId; noteDate: LocalDate; excerpt: string; revision: Revision; updatedAt: UnixMillis; }
 export interface NoteDocument { id: EntityId; noteDate: LocalDate; bodyMarkdown: string; revision: Revision; createdAt: UnixMillis; updatedAt: UnixMillis; }
+export interface NoteRecording { id: EntityId; noteDate: LocalDate; mimeType: string; byteSize: number; startedAt: UnixMillis; durationMs: number; revision: Revision; createdAt: UnixMillis; updatedAt: UnixMillis; }
+export interface NoteRecordingPayload { id: EntityId; mimeType: string; base64: string; }
+export interface NoteDateContentSummary { noteDate: LocalDate; hasText: boolean; hasRecordings: boolean; }
 export interface ClipboardItem { id: EntityId; contentKind: ClipboardContentKind; textContent: string | null; assetId: EntityId | null; sourceApp: string | null; pinned: boolean; capturedAt: UnixMillis; lastSeenAt: UnixMillis; byteSize: number; }
 export interface MediaSnapshot { sessionId: string | null; title: string; artist: string; playbackState: MediaPlaybackState; positionSeconds: number; durationSeconds: number | null; volumePercent: number | null; canPlay: boolean; canPause: boolean; canPrevious: boolean; canNext: boolean; canSeek: boolean; canSetVolume: boolean; updatedAt: UnixMillis; }
 // MediaSnapshot.volumePercent, MediaSnapshot.canSetVolume, and setVolume refer only to the Windows default render endpoint master volume.
