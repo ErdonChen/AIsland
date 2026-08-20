@@ -534,6 +534,33 @@ pub struct NoteDocument {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct NoteRecording {
+    pub id: EntityId,
+    pub note_date: LocalDate,
+    pub mime_type: String,
+    pub byte_size: i64,
+    pub started_at: UnixMillis,
+    pub duration_ms: i64,
+    pub revision: Revision,
+    pub created_at: UnixMillis,
+    pub updated_at: UnixMillis,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteRecordingPayload {
+    pub id: EntityId,
+    pub mime_type: String,
+    pub base64: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteDateContentSummary {
+    pub note_date: LocalDate,
+    pub has_text: bool,
+    pub has_recordings: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ClipboardItem {
     pub id: EntityId,
     pub content_kind: ClipboardContentKind,

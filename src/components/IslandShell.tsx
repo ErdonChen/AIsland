@@ -12,7 +12,7 @@ import AgentStatusSlots, { prioritizedAgentStatuses, sortAgentsByPriority, visib
 import AgentsPage from "../pages/AgentsPage";
 import type { CommittedAgentContext } from "../pages/AgentsPage";
 import SettingsView from "./settings/SettingsView";
-import DailyNotesPage from "../features/notes/DailyNotesPage";
+import DailyNotesPage, { type DailyNotesPageHandle } from "../features/notes/DailyNotesPage";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import MonitorPage from "../pages/MonitorPage";
 import NotificationCenterPage from "../pages/NotificationCenterPage";
@@ -20,6 +20,8 @@ import TabBar from "./TabBar";
 import StatusDot from "./StatusDot";
 import { AGENT_STATUS_COLOR } from "./agentStatusPresentation";
 import type { InitialState, IslandExpansionMotion, IslandMode, IslandPage } from "../types";
+import type { IslandBackgroundColor } from "../types";
+import { isIslandBackgroundColor, islandBackgroundRgb } from "../backgroundPalette";
 import {
   clampWindowScale,
   clampWindowWidth,
@@ -33,10 +35,12 @@ const SCALE_KEY = "aisland.window.scale";
 const COLLAPSED_WIDTH_KEY = "aisland.window.collapsedWidth.v1";
 const EXPANDED_WIDTH_KEY = "aisland.window.expandedWidth.v1";
 const GLASS_TRANSPARENCY_KEY = "aisland.display.glassTransparency.v1";
+const BACKGROUND_COLOR_KEY = "aisland.display.backgroundColor.v1";
 const EXPANSION_MOTION_KEY = "aisland.display.expansionMotion.v1";
 const COMPACT_WINDOW_KEY = "aisland.display.compactWindow.v1";
 const NOTIFICATION_POPUP_KEY = "aisland.notifications.popup.v1";
 const DEFAULT_GLASS_TRANSPARENCY = 58;
+const EXPANSION_PREVIEW_PAUSE_MS = 120;
 const COMPACT_EXPAND_DELAY_MS = 600;
 const COMPACT_COLLAPSE_DELAY_MS = 280;
 const NOTIFICATION_VISIBLE_MS = 8_000;
@@ -89,6 +93,16 @@ function loadGlassTransparency() {
   } catch (error) {
     console.error("Failed to load glass transparency", error);
     return DEFAULT_GLASS_TRANSPARENCY;
+  }
+}
+
+function loadBackgroundColor(): IslandBackgroundColor {
+  try {
+    const stored = localStorage.getItem(BACKGROUND_COLOR_KEY);
+    return isIslandBackgroundColor(stored) ? stored : "midnight";
+  } catch (error) {
+    console.error("Failed to load background color", error);
+    return "midnight";
   }
 }
 
@@ -316,8 +330,13 @@ export default function IslandShell() {
   const { language, t } = useI18n();
   const [mode, setMode] = useState<IslandMode>("collapsed");
   const [page, setPage] = useState<IslandPage>("home");
+  const pageRef = useRef<IslandPage>("home");
+  const dailyNotesRef = useRef<DailyNotesPageHandle>(null);
+  const pageNavigationInFlightRef = useRef(false);
+  const navigatePageRef = useRef<(page: IslandPage) => Promise<boolean>>(async () => false);
   const [scale, setScale] = useState(1);
   const [glassTransparency, setGlassTransparency] = useState(loadGlassTransparency);
+  const [backgroundColor, setBackgroundColor] = useState<IslandBackgroundColor>(loadBackgroundColor);
   const [expansionMotion, setExpansionMotion] = useState<IslandExpansionMotion>(loadExpansionMotion);
   const expansionMotionRef = useRef(expansionMotion);
   const [compactWindowEnabled, setCompactWindowEnabled] = useState(() => loadBooleanPreference(COMPACT_WINDOW_KEY, true));
@@ -358,6 +377,7 @@ export default function IslandShell() {
   const expandedFixedEdgeRef = useRef<"left" | "right">("left");
   const heightCoordinatorRef = useRef<ConfirmedDesiredSingleFlight | null>(null);
   const modeCoordinatorRef = useRef<LatestWinsImmediate<IslandMode> | null>(null);
+  const expansionPreviewInFlightRef = useRef(false);
   const heightDragCleanupRef = useRef<(() => void) | null>(null);
   const widthDragCleanupRef = useRef<(() => void) | null>(null);
   const compactWindowEnabledRef = useRef(compactWindowEnabled);
@@ -373,6 +393,28 @@ export default function IslandShell() {
   notificationPopupEnabledRef.current = notificationPopupEnabled;
   activeNotificationRef.current = activeNotification;
   expansionMotionRef.current = expansionMotion;
+
+  const navigatePage = useCallback(async (nextPage: IslandPage): Promise<boolean> => {
+    if (nextPage === pageRef.current) return true;
+    if (pageNavigationInFlightRef.current) return false;
+    pageNavigationInFlightRef.current = true;
+    try {
+      if (pageRef.current === "note" && nextPage !== "note") {
+        const ready = await dailyNotesRef.current?.prepareToLeave();
+        if (ready === false) return false;
+      }
+      pageRef.current = nextPage;
+      setPage(nextPage);
+      return true;
+    } finally {
+      pageNavigationInFlightRef.current = false;
+    }
+  }, []);
+  navigatePageRef.current = navigatePage;
+
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
 
   if (modeCoordinatorRef.current === null) {
     modeCoordinatorRef.current = new LatestWinsImmediate<IslandMode>(
@@ -550,8 +592,10 @@ export default function IslandShell() {
             continueDraining = false;
             return;
           }
+          if (!await navigatePageRef.current("settings")) {
+            throw new Error("Daily Notes did not confirm navigation");
+          }
           setAgentProfileFocusId(null);
-          setPage("settings");
           setCompletedSettingsSequence((current) =>
             current === null ? sequence : Math.max(current, sequence),
           );
@@ -646,7 +690,7 @@ export default function IslandShell() {
         triggerStatus: triggerStatus as AgentTriggerStatus,
       };
       setSelectedAgentContext(context);
-      setPage("home");
+      if (!await navigatePageRef.current("home")) return;
       if (modeRef.current === "collapsed") {
         const confirmedMode = await requestMode("expanded");
         if (confirmedMode !== "expanded") throw new Error("Island expansion was not confirmed");
@@ -910,11 +954,36 @@ export default function IslandShell() {
     hoverCollapseTimerRef.current = undefined;
   }, [cancelCompactHoverExpansion]);
 
+  const previewExpansionMotion = useCallback(async () => {
+    if (expansionPreviewInFlightRef.current) return;
+    expansionPreviewInFlightRef.current = true;
+    const wasPinned = pinnedExpandedRef.current;
+    pinnedExpandedRef.current = true;
+    clearHoverTimers();
+    try {
+      const collapsed = await requestMode("collapsed", true);
+      if (collapsed !== "collapsed") throw new Error("Island collapse preview was not confirmed");
+      await new Promise<void>((resolve) => window.setTimeout(resolve, EXPANSION_PREVIEW_PAUSE_MS));
+      const expanded = await requestMode("expanded", true);
+      if (expanded !== "expanded") throw new Error("Island expansion preview was not confirmed");
+    } catch (error) {
+      if (modeRef.current !== "expanded") {
+        const recovered = await requestMode("expanded", true);
+        if (recovered !== "expanded") throw new Error("Island expansion preview could not restore the settings window");
+      }
+      throw error;
+    } finally {
+      pinnedExpandedRef.current = wasPinned;
+      expansionPreviewInFlightRef.current = false;
+    }
+  }, [clearHoverTimers, requestMode]);
+
   const scheduleCompactCollapse = useCallback(() => {
     if (
       !compactWindowEnabledRef.current
       || isHoveredRef.current
       || pinnedExpandedRef.current
+      || expansionPreviewInFlightRef.current
       || activeNotificationRef.current !== null
     ) return;
     if (hoverCollapseTimerRef.current !== undefined) window.clearTimeout(hoverCollapseTimerRef.current);
@@ -1092,6 +1161,15 @@ export default function IslandShell() {
     }
   }, []);
 
+  const applyBackgroundColor = useCallback((color: IslandBackgroundColor) => {
+    setBackgroundColor(color);
+    try {
+      localStorage.setItem(BACKGROUND_COLOR_KEY, color);
+    } catch (error) {
+      console.error("Failed to persist background color", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!initialized) return;
     void invoke("set_island_glass_transparency", { transparency: glassTransparency }).catch((error) => {
@@ -1146,11 +1224,11 @@ export default function IslandShell() {
     isHoveredRef.current = true;
     if (hoverCollapseTimerRef.current !== undefined) window.clearTimeout(hoverCollapseTimerRef.current);
     hoverCollapseTimerRef.current = undefined;
-    if (!compactWindowEnabledRef.current || modeRef.current !== "collapsed") return;
+    if (expansionPreviewInFlightRef.current || !compactWindowEnabledRef.current || modeRef.current !== "collapsed") return;
     if (hoverExpandTimerRef.current !== undefined) window.clearTimeout(hoverExpandTimerRef.current);
     hoverExpandTimerRef.current = window.setTimeout(() => {
       hoverExpandTimerRef.current = undefined;
-      if (isHoveredRef.current && compactWindowEnabledRef.current) requestMode("expanded");
+      if (isHoveredRef.current && compactWindowEnabledRef.current && !expansionPreviewInFlightRef.current) requestMode("expanded");
     }, COMPACT_EXPAND_DELAY_MS);
   }, [requestMode]);
 
@@ -1176,13 +1254,11 @@ export default function IslandShell() {
     scheduleCompactCollapse();
   }, [scheduleCompactCollapse]);
 
-  const selectPage = useCallback((nextPage: IslandPage) => {
+  const selectPage = useCallback(async (nextPage: IslandPage) => {
+    if (!await navigatePage(nextPage)) return;
     setAgentProfileFocusId(null);
-    setPage(nextPage);
-    if (nextPage === "settings") {
-      recordSettingsRouteEntry("tab");
-    }
-  }, [recordSettingsRouteEntry]);
+    if (nextPage === "settings") recordSettingsRouteEntry("tab");
+  }, [navigatePage, recordSettingsRouteEntry]);
 
   const acknowledgeSettingsAtRoot = useCallback(async (sequence: number) => {
     const lifecycle = lifecycleRef.current;
@@ -1312,20 +1388,20 @@ export default function IslandShell() {
   }, [initialized, mode, pending, requestMode]);
 
   const openAgent = useCallback(async (agentId: AgentId) => {
+    if (!await navigatePage("home")) return;
     setAgentProfileFocusId(null);
     setSelectedAgentId(agentId);
-    setPage("home");
     if (mode !== "collapsed" || !initialized || pending) return;
     requestMode("expanded");
-  }, [initialized, mode, pending, requestMode]);
+  }, [initialized, mode, navigatePage, pending, requestMode]);
 
-  const openAgentProfile = useCallback((profileId: string) => {
+  const openAgentProfile = useCallback(async (profileId: string) => {
+    if (!await navigatePage("settings")) return;
     setAgentProfileFocusId(profileId);
     setSelectedAgentId(null);
-    setPage("settings");
     if (mode !== "collapsed" || !initialized || pending) return;
     requestMode("expanded");
-  }, [initialized, mode, pending, requestMode]);
+  }, [initialized, mode, navigatePage, pending, requestMode]);
 
   const startDrag = useCallback(async (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || !initialized || pending) return;
@@ -1370,6 +1446,7 @@ export default function IslandShell() {
     height: canvasSize.height,
     transform: `scale(${scale})`,
     "--glass-shell-alpha": String(Number((1 - glassRatio).toFixed(2))),
+    "--glass-shell-rgb": islandBackgroundRgb(backgroundColor),
     "--glass-panel-alpha": String(Number((0.1 * glassMaterialRatio).toFixed(3))),
     "--glass-popover-alpha": String(Number((0.96 * glassMaterialRatio).toFixed(3))),
     "--glass-blur": `${Math.round(glassRatio * 24)}px`,
@@ -1386,6 +1463,7 @@ export default function IslandShell() {
       <div
         className={`island-canvas island-canvas--${mode}`}
         data-glass-transparency={glassTransparency}
+        data-background-color={backgroundColor}
         style={glassStyle}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
@@ -1479,27 +1557,33 @@ export default function IslandShell() {
             </button>
           </div>
         )}
-        {mode === "expanded" && page !== "note" && (
+        {page === "settings" && (
+          <main className="island-content" hidden={mode !== "expanded"}>
+            <SettingsView
+              scale={scale}
+              onScaleChange={applyScale}
+              glassTransparency={glassTransparency}
+              onGlassTransparencyChange={applyGlassTransparency}
+              backgroundColor={backgroundColor}
+              onBackgroundColorChange={applyBackgroundColor}
+              expansionMotion={expansionMotion}
+              onExpansionMotionChange={applyExpansionMotion}
+              onPreviewExpansionMotion={previewExpansionMotion}
+              compactWindowEnabled={compactWindowEnabled}
+              onCompactWindowEnabledChange={applyCompactWindowEnabled}
+              notificationPopupEnabled={notificationPopupEnabled}
+              onNotificationPopupEnabledChange={applyNotificationPopupEnabled}
+              onExitSettings={() => void navigatePage("home")}
+              routeResetToken={settingsRouteEntry?.token ?? null}
+              entrySequence={completedSettingsSequence}
+              onEntryHandled={acknowledgeSettingsAtRoot}
+              agentProfileFocusId={agentProfileFocusId}
+            />
+          </main>
+        )}
+        {mode === "expanded" && page !== "note" && page !== "settings" && (
           <main className="island-content" key={page}>
-            {page === "settings" ? (
-              <SettingsView
-                scale={scale}
-                onScaleChange={applyScale}
-                glassTransparency={glassTransparency}
-                onGlassTransparencyChange={applyGlassTransparency}
-                expansionMotion={expansionMotion}
-                onExpansionMotionChange={applyExpansionMotion}
-                compactWindowEnabled={compactWindowEnabled}
-                onCompactWindowEnabledChange={applyCompactWindowEnabled}
-                notificationPopupEnabled={notificationPopupEnabled}
-                onNotificationPopupEnabledChange={applyNotificationPopupEnabled}
-                onExitSettings={() => setPage("home")}
-                routeResetToken={settingsRouteEntry?.token ?? null}
-                entrySequence={completedSettingsSequence}
-                onEntryHandled={acknowledgeSettingsAtRoot}
-                agentProfileFocusId={agentProfileFocusId}
-              />
-            ) : page === "home" ? (
+            {page === "home" ? (
               <AgentsPage agents={homeAgents} profileSummaries={agentProfilesSnapshot.profiles} selectedAgentId={selectedAgentId} selectedContext={selectedAgentContext} selectedContextSequence={pendingAgentRoute?.sequence ?? null} onSelectedContextCommitted={setCommittedAgentContext} />
             ) : page === "clipboard" ? (
               <ClipboardPage />
@@ -1516,7 +1600,7 @@ export default function IslandShell() {
           className="island-content"
           hidden={mode !== "expanded" || page !== "note"}
         >
-          <DailyNotesPage />
+          <DailyNotesPage ref={dailyNotesRef} active={page === "note"} />
         </main>
         {mode === "expanded" && (
           <div

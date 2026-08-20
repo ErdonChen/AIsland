@@ -8,7 +8,7 @@ import DailyNotesPage from "./DailyNotesPage";
 
 const mocks = vi.hoisted(() => ({
   createNote: vi.fn(), deleteNote: vi.fn(), exportNoteMarkdown: vi.fn(), getDailyNote: vi.fn(), getNote: vi.fn(),
-  listNotes: vi.fn(), listenNoteChanged: vi.fn(), openNoteDirectory: vi.fn(), updateNote: vi.fn(), unlisten: vi.fn(), invoke: vi.fn(),
+  listNotes: vi.fn(), listNoteContentDates: vi.fn(), listNoteRecordings: vi.fn(), recoverNoteRecordings: vi.fn(), listenNoteChanged: vi.fn(), openNoteDirectory: vi.fn(), updateNote: vi.fn(), unlisten: vi.fn(), invoke: vi.fn(),
   clipboardWrite: vi.fn(),
 }));
 
@@ -16,6 +16,9 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
 vi.mock("../../api/commands", () => ({
   createNote: mocks.createNote, deleteNote: mocks.deleteNote, exportNoteMarkdown: mocks.exportNoteMarkdown,
   getDailyNote: mocks.getDailyNote, getNote: mocks.getNote, listNotes: mocks.listNotes,
+  listNoteContentDates: mocks.listNoteContentDates,
+  listNoteRecordings: mocks.listNoteRecordings,
+  recoverNoteRecordings: mocks.recoverNoteRecordings,
   openNoteDirectory: mocks.openNoteDirectory, updateNote: mocks.updateNote,
 }));
 vi.mock("../../api/events", () => ({ listenNoteChanged: mocks.listenNoteChanged }));
@@ -54,6 +57,11 @@ beforeEach(() => {
   mocks.getDailyNote.mockReset().mockResolvedValue(noteFixture());
   mocks.getNote.mockReset().mockResolvedValue(noteFixture());
   mocks.listNotes.mockReset().mockResolvedValue([]);
+  mocks.listNoteContentDates.mockReset().mockResolvedValue([
+    { noteDate: "2026-08-09", hasText: true, hasRecordings: false },
+  ]);
+  mocks.listNoteRecordings.mockReset().mockResolvedValue([]);
+  mocks.recoverNoteRecordings.mockReset().mockResolvedValue(0);
   mocks.createNote.mockReset().mockImplementation(async (input) => noteFixture({ id: "created-note", bodyMarkdown: input.bodyMarkdown, noteDate: input.noteDate, revision: 1 }));
   mocks.updateNote.mockReset().mockImplementation(async (input) => noteFixture({ bodyMarkdown: input.bodyMarkdown, noteDate: input.noteDate, revision: input.expectedRevision + 1 }));
   mocks.deleteNote.mockReset().mockResolvedValue({ id: "note-1", deleted: true });
@@ -232,6 +240,19 @@ describe("daily note lifecycle and autosave", () => {
     await waitFor(() => expect(mocks.updateNote).toHaveBeenCalledWith({ id: "note-1", noteDate: "2026-08-08", bodyMarkdown: "stay here", expectedRevision: 3 }));
     expect(screen.getByLabelText("Date")).toHaveValue("2026-08-08");
     expect(editor).toHaveValue("stay here");
+  });
+
+  it("uses the same save barrier when a calendar day is clicked", async () => {
+    mocks.updateNote.mockRejectedValueOnce(commandError("databaseFailure"));
+    const { editor, user } = await renderNotes();
+    fireEvent.change(editor, { target: { value: "calendar must not lose this" } });
+    await user.click(screen.getByRole("button", { name: "Show calendar" }));
+    await user.click(await screen.findByRole("gridcell", { name: "2026-08-09, has content" }));
+
+    await waitFor(() => expect(mocks.updateNote).toHaveBeenCalledWith({
+      id: "note-1", noteDate: "2026-08-08", bodyMarkdown: "calendar must not lose this", expectedRevision: 3,
+    }));
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-08-08");
   });
 
   it("creates an absent date only after its first non-empty debounced draft", async () => {

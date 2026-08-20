@@ -1,9 +1,11 @@
 use crate::contracts::{
     AppErrorCode, CommandError, CreateNoteInput, DeleteResult, DiagnosticEvent, DiagnosticLevel,
-    ExportNoteResult, NoteDocument, NoteSummary, SafeMessageParameters, SafeParameterValue,
-    UpdateNoteInput,
+    ExportNoteResult, NoteDateContentSummary, NoteDocument, NoteRecording, NoteRecordingPayload,
+    NoteSummary, SafeMessageParameters, SafeParameterValue, UpdateNoteInput,
 };
+use crate::repositories::note_recordings::NoteRecordingStatus;
 use crate::services::AppServices;
+use base64::Engine as _;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -39,6 +41,108 @@ pub fn getDailyNote(
         .notes
         .get_daily(&note_date)
         .inspect_err(|error| log_note_command_failure("getDailyNote", error))
+}
+
+#[tauri::command(rename = "startNoteRecording", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn startNoteRecording(
+    note_date: String,
+    mime_type: String,
+    file_extension: String,
+    started_at: i64,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<NoteRecording, CommandError> {
+    start_note_recording_with_services(
+        note_date,
+        mime_type,
+        file_extension,
+        started_at,
+        services.inner().as_ref(),
+        now_millis(),
+    )
+}
+
+#[tauri::command(rename = "appendNoteRecordingChunk", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn appendNoteRecordingChunk(
+    id: Uuid,
+    chunk: Vec<u8>,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<(), CommandError> {
+    append_note_recording_chunk_with_services(id, chunk, services.inner().as_ref())
+}
+
+#[tauri::command(rename = "finishNoteRecording", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn finishNoteRecording(
+    id: Uuid,
+    duration_ms: i64,
+    expected_revision: u64,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<NoteRecording, CommandError> {
+    finish_note_recording_with_services(
+        id,
+        duration_ms,
+        expected_revision,
+        services.inner().as_ref(),
+        now_millis(),
+    )
+}
+
+#[tauri::command(rename = "listNoteRecordings", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn listNoteRecordings(
+    note_date: String,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<Vec<NoteRecording>, CommandError> {
+    list_note_recordings_with_services(note_date, services.inner().as_ref())
+}
+
+#[tauri::command(rename = "listNoteContentDates", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn listNoteContentDates(
+    start_date: String,
+    end_date: String,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<Vec<NoteDateContentSummary>, CommandError> {
+    list_note_content_dates_with_services(start_date, end_date, services.inner().as_ref())
+}
+
+#[tauri::command(rename = "readNoteRecording", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn readNoteRecording(
+    id: Uuid,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<NoteRecordingPayload, CommandError> {
+    read_note_recording_with_services(id, services.inner().as_ref())
+}
+
+#[tauri::command(rename = "abortNoteRecording", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn abortNoteRecording(
+    id: Uuid,
+    expected_revision: u64,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<DeleteResult, CommandError> {
+    abort_note_recording_with_services(id, expected_revision, services.inner().as_ref())
+}
+
+#[tauri::command(rename = "deleteNoteRecording", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn deleteNoteRecording(
+    id: Uuid,
+    expected_revision: u64,
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<DeleteResult, CommandError> {
+    delete_note_recording_with_services(id, expected_revision, services.inner().as_ref())
+}
+
+#[tauri::command(rename = "recoverNoteRecordings", rename_all = "camelCase")]
+#[allow(non_snake_case)]
+pub fn recoverNoteRecordings(
+    services: tauri::State<'_, Arc<AppServices>>,
+) -> Result<u64, CommandError> {
+    recover_note_recordings_with_services(services.inner().as_ref())
 }
 
 #[tauri::command(rename = "createNote", rename_all = "camelCase")]
@@ -204,6 +308,206 @@ fn create_note_with_services(
     Ok(note)
 }
 
+fn start_note_recording_with_services(
+    note_date: String,
+    mime_type: String,
+    file_extension: String,
+    started_at: i64,
+    services: &AppServices,
+    now: i64,
+) -> Result<NoteRecording, CommandError> {
+    let id = Uuid::new_v4();
+    services
+        .note_recording_assets
+        .create_temporary(&note_date, id, &file_extension)?;
+    let asset_name = format!("{id}.{file_extension}");
+    let result = services.note_recordings.start(
+        id,
+        &note_date,
+        &asset_name,
+        &mime_type,
+        &file_extension,
+        started_at,
+        now,
+    );
+    if result.is_err() {
+        services
+            .note_recording_assets
+            .discard_temporary(&note_date, id, &file_extension)?;
+    }
+    result
+}
+
+fn append_note_recording_chunk_with_services(
+    id: Uuid,
+    chunk: Vec<u8>,
+    services: &AppServices,
+) -> Result<(), CommandError> {
+    let record = services.note_recordings.get_record(id)?;
+    if record.status != NoteRecordingStatus::Recording {
+        return Err(invalid_input());
+    }
+    services.note_recording_assets.append_temporary(
+        &record.recording.note_date,
+        id,
+        &record.file_extension,
+        &chunk,
+    )
+}
+
+fn finish_note_recording_with_services(
+    id: Uuid,
+    duration_ms: i64,
+    expected_revision: u64,
+    services: &AppServices,
+    now: i64,
+) -> Result<NoteRecording, CommandError> {
+    let record = services.note_recordings.get_record(id)?;
+    if record.status != NoteRecordingStatus::Recording || record.recording.revision < 1 {
+        return Err(invalid_input());
+    }
+    let (asset_name, byte_size) = services.note_recording_assets.finalize(
+        &record.recording.note_date,
+        id,
+        &record.file_extension,
+    )?;
+    if asset_name != record.asset_name {
+        services.note_recording_assets.rollback_finalize(
+            &record.recording.note_date,
+            id,
+            &record.file_extension,
+        )?;
+        return Err(invalid_input());
+    }
+    let result =
+        services
+            .note_recordings
+            .complete(id, duration_ms, byte_size, expected_revision, now);
+    if result.is_err() {
+        services.note_recording_assets.rollback_finalize(
+            &record.recording.note_date,
+            id,
+            &record.file_extension,
+        )?;
+    }
+    result
+}
+
+fn list_note_recordings_with_services(
+    note_date: String,
+    services: &AppServices,
+) -> Result<Vec<NoteRecording>, CommandError> {
+    services.note_recordings.list_completed(&note_date)
+}
+
+fn list_note_content_dates_with_services(
+    start_date: String,
+    end_date: String,
+    services: &AppServices,
+) -> Result<Vec<NoteDateContentSummary>, CommandError> {
+    services
+        .note_recordings
+        .list_content_dates(&start_date, &end_date)
+}
+
+fn read_note_recording_with_services(
+    id: Uuid,
+    services: &AppServices,
+) -> Result<NoteRecordingPayload, CommandError> {
+    let record = services.note_recordings.get_record(id)?;
+    if record.status != NoteRecordingStatus::Completed {
+        return Err(invalid_input());
+    }
+    let bytes = services
+        .note_recording_assets
+        .read_completed(&record.recording.note_date, &record.asset_name)?;
+    Ok(NoteRecordingPayload {
+        id: record.recording.id,
+        mime_type: record.recording.mime_type,
+        base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+    })
+}
+
+fn abort_note_recording_with_services(
+    id: Uuid,
+    expected_revision: u64,
+    services: &AppServices,
+) -> Result<DeleteResult, CommandError> {
+    remove_recording_with_services(
+        id,
+        expected_revision,
+        services,
+        NoteRecordingStatus::Recording,
+    )
+}
+
+fn delete_note_recording_with_services(
+    id: Uuid,
+    expected_revision: u64,
+    services: &AppServices,
+) -> Result<DeleteResult, CommandError> {
+    remove_recording_with_services(
+        id,
+        expected_revision,
+        services,
+        NoteRecordingStatus::Completed,
+    )
+}
+
+fn remove_recording_with_services(
+    id: Uuid,
+    expected_revision: u64,
+    services: &AppServices,
+    required_status: NoteRecordingStatus,
+) -> Result<DeleteResult, CommandError> {
+    let record = services.note_recordings.get_record(id)?;
+    if record.status != required_status {
+        return Err(invalid_input());
+    }
+    let staged = match required_status {
+        NoteRecordingStatus::Recording => services.note_recording_assets.stage_temporary_deletion(
+            &record.recording.note_date,
+            id,
+            &record.file_extension,
+        )?,
+        NoteRecordingStatus::Completed => services.note_recording_assets.stage_completed_deletion(
+            &record.recording.note_date,
+            id,
+            &record.file_extension,
+        )?,
+    };
+    match services
+        .note_recordings
+        .delete(id, expected_revision, required_status)
+    {
+        Ok(result) => {
+            // The row is authoritative once committed. A failed best-effort unlink leaves only
+            // an inaccessible staged file, never a completed recording that the UI can address.
+            let _ = services
+                .note_recording_assets
+                .commit_staged_deletion(staged);
+            Ok(result)
+        }
+        Err(error) => {
+            services
+                .note_recording_assets
+                .rollback_staged_deletion(staged)?;
+            Err(error)
+        }
+    }
+}
+
+fn recover_note_recordings_with_services(services: &AppServices) -> Result<u64, CommandError> {
+    let drafts = services.note_recordings.list_drafts()?;
+    let mut removed = 0_u64;
+    for draft in drafts {
+        let id = Uuid::parse_str(&draft.recording.id).map_err(|_| invalid_input())?;
+        abort_note_recording_with_services(id, draft.recording.revision as u64, services)?;
+        removed = removed.checked_add(1).ok_or_else(invalid_input)?;
+    }
+    Ok(removed)
+}
+
 fn update_note_with_services(
     input: UpdateNoteInput,
     services: &AppServices,
@@ -276,9 +580,16 @@ fn now_millis() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        createNote, create_note_with_services, deleteNote, delete_note_with_services,
-        exportNoteMarkdown, export_note_markdown_with_services, getDailyNote, getNote, listNotes,
-        openNoteDirectory, open_note_directory_with, updateNote, update_note_with_services,
+        abortNoteRecording, appendNoteRecordingChunk, append_note_recording_chunk_with_services,
+        createNote, create_note_with_services, deleteNote, deleteNoteRecording,
+        delete_note_recording_with_services, delete_note_with_services, exportNoteMarkdown,
+        export_note_markdown_with_services, finishNoteRecording,
+        finish_note_recording_with_services, getDailyNote, getNote, listNoteContentDates,
+        listNoteRecordings, listNotes, list_note_content_dates_with_services,
+        list_note_recordings_with_services, openNoteDirectory, open_note_directory_with,
+        readNoteRecording, read_note_recording_with_services, recoverNoteRecordings,
+        recover_note_recordings_with_services, startNoteRecording,
+        start_note_recording_with_services, updateNote, update_note_with_services,
         NoteDirectoryOpener,
     };
     use crate::contracts::{
@@ -383,10 +694,188 @@ mod tests {
     }
 
     #[test]
+    fn recording_chunks_complete_without_creating_a_text_note() {
+        use base64::Engine as _;
+
+        let services = services(Arc::new(FailingEmitter));
+        let draft = start_note_recording_with_services(
+            "2026-08-08".into(),
+            "audio/webm;codecs=opus".into(),
+            "webm".into(),
+            10,
+            services.as_ref(),
+            10,
+        )
+        .unwrap();
+
+        append_note_recording_chunk_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            vec![1, 2],
+            services.as_ref(),
+        )
+        .unwrap();
+        append_note_recording_chunk_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            vec![3, 4],
+            services.as_ref(),
+        )
+        .unwrap();
+        let completed = finish_note_recording_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            1_250,
+            1,
+            services.as_ref(),
+            20,
+        )
+        .unwrap();
+
+        assert_eq!(completed.byte_size, 4);
+        assert_eq!(completed.duration_ms, 1_250);
+        assert_eq!(completed.revision, 2);
+        assert_eq!(
+            list_note_recordings_with_services("2026-08-08".into(), services.as_ref()).unwrap(),
+            vec![completed.clone()]
+        );
+        let payload = read_note_recording_with_services(
+            Uuid::parse_str(&completed.id).unwrap(),
+            services.as_ref(),
+        )
+        .unwrap();
+        assert_eq!(payload.mime_type, "audio/webm;codecs=opus");
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(payload.base64)
+                .unwrap(),
+            vec![1, 2, 3, 4]
+        );
+        assert_eq!(services.notes.get_daily("2026-08-08").unwrap(), None);
+    }
+
+    #[test]
+    fn completed_recordings_delete_and_unfinished_recordings_recover_locally() {
+        let services = services(Arc::new(FailingEmitter));
+        let draft = start_note_recording_with_services(
+            "2026-08-08".into(),
+            "audio/webm".into(),
+            "webm".into(),
+            10,
+            services.as_ref(),
+            10,
+        )
+        .unwrap();
+        append_note_recording_chunk_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            vec![1, 2, 3],
+            services.as_ref(),
+        )
+        .unwrap();
+        let completed = finish_note_recording_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            300,
+            1,
+            services.as_ref(),
+            20,
+        )
+        .unwrap();
+        delete_note_recording_with_services(
+            Uuid::parse_str(&completed.id).unwrap(),
+            completed.revision as u64,
+            services.as_ref(),
+        )
+        .unwrap();
+        assert!(
+            list_note_recordings_with_services("2026-08-08".into(), services.as_ref())
+                .unwrap()
+                .is_empty()
+        );
+
+        start_note_recording_with_services(
+            "2026-08-09".into(),
+            "audio/webm".into(),
+            "webm".into(),
+            30,
+            services.as_ref(),
+            30,
+        )
+        .unwrap();
+        assert_eq!(
+            recover_note_recordings_with_services(services.as_ref()).unwrap(),
+            1
+        );
+        assert_eq!(
+            recover_note_recordings_with_services(services.as_ref()).unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn calendar_content_dates_include_text_and_recording_only_days() {
+        let services = services(Arc::new(FailingEmitter));
+        services
+            .notes
+            .create(
+                CreateNoteInput {
+                    note_date: "2026-08-08".into(),
+                    body_markdown: "text".into(),
+                },
+                10,
+            )
+            .unwrap();
+        let draft = start_note_recording_with_services(
+            "2026-08-09".into(),
+            "audio/webm".into(),
+            "webm".into(),
+            20,
+            services.as_ref(),
+            20,
+        )
+        .unwrap();
+        append_note_recording_chunk_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            vec![1],
+            services.as_ref(),
+        )
+        .unwrap();
+        finish_note_recording_with_services(
+            Uuid::parse_str(&draft.id).unwrap(),
+            100,
+            1,
+            services.as_ref(),
+            30,
+        )
+        .unwrap();
+
+        assert_eq!(
+            list_note_content_dates_with_services(
+                "2026-08-01".into(),
+                "2026-08-31".into(),
+                services.as_ref(),
+            )
+            .unwrap()
+            .into_iter()
+            .map(|item| (item.note_date, item.has_text, item.has_recordings))
+            .collect::<Vec<_>>(),
+            vec![
+                ("2026-08-08".to_string(), true, false),
+                ("2026-08-09".to_string(), false, true),
+            ]
+        );
+    }
+
+    #[test]
     fn canonical_manifest_registers_the_controlled_note_directory_command_once() {
         let _ = listNotes;
         let _ = getNote;
         let _ = getDailyNote;
+        let _ = startNoteRecording;
+        let _ = appendNoteRecordingChunk;
+        let _ = finishNoteRecording;
+        let _ = listNoteRecordings;
+        let _ = listNoteContentDates;
+        let _ = readNoteRecording;
+        let _ = abortNoteRecording;
+        let _ = deleteNoteRecording;
+        let _ = recoverNoteRecordings;
         let _ = createNote;
         let _ = updateNote;
         let _ = deleteNote;
@@ -398,6 +887,15 @@ mod tests {
                 "listNotes",
                 "getNote",
                 "getDailyNote",
+                "startNoteRecording",
+                "appendNoteRecordingChunk",
+                "finishNoteRecording",
+                "listNoteRecordings",
+                "listNoteContentDates",
+                "readNoteRecording",
+                "abortNoteRecording",
+                "deleteNoteRecording",
+                "recoverNoteRecordings",
                 "createNote",
                 "updateNote",
                 "deleteNote",

@@ -74,6 +74,7 @@ function SettingsHarness({
 }: SettingsHarnessProps) {
   const [scale, setScale] = useState(1);
   const [glassTransparency, setGlassTransparency] = useState(58);
+  const [backgroundColor, setBackgroundColor] = useState<"midnight" | "ocean" | "graphite" | "pine" | "nebula" | "rock">("midnight");
   const [expansionMotion, setExpansionMotion] = useState<"elastic" | "smooth" | "swift">("elastic");
   const [compactWindowEnabled, setCompactWindowEnabled] = useState(true);
   const [notificationPopupEnabled, setNotificationPopupEnabled] = useState(true);
@@ -84,8 +85,11 @@ function SettingsHarness({
       onScaleChange={setScale}
       glassTransparency={glassTransparency}
       onGlassTransparencyChange={setGlassTransparency}
+      backgroundColor={backgroundColor}
+      onBackgroundColorChange={setBackgroundColor}
       expansionMotion={expansionMotion}
       onExpansionMotionChange={setExpansionMotion}
+      onPreviewExpansionMotion={() => Promise.resolve()}
       compactWindowEnabled={compactWindowEnabled}
       onCompactWindowEnabledChange={setCompactWindowEnabled}
       notificationPopupEnabled={notificationPopupEnabled}

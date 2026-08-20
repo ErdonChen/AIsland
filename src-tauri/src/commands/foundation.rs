@@ -375,7 +375,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["alpha", "zeta"]
         );
-        assert_eq!(snapshot.storage_schema_version, 10);
+        assert_eq!(snapshot.storage_schema_version, 11);
     }
 
     #[test]
@@ -409,7 +409,7 @@ mod tests {
             serde_json::to_value(result).unwrap(),
             serde_json::json!({
                 "integrity": "ok",
-                "schemaVersion": 10,
+                "schemaVersion": 11,
                 "checkedAt": 42,
             })
         );

@@ -27,7 +27,8 @@ import AgentProfilesSettings from "../../settings/AgentProfilesSettings";
 import DiagnosticsSettings from "../../settings/DiagnosticsSettings";
 import ReminderSettings from "../../settings/ReminderSettings";
 import MonitorSettings from "../../settings/MonitorSettings";
-import type { IslandExpansionMotion } from "../../types";
+import { ISLAND_BACKGROUND_OPTIONS } from "../../backgroundPalette";
+import type { IslandBackgroundColor, IslandExpansionMotion } from "../../types";
 import { scaleFromSliderPosition, sliderPositionFromScale, windowScalePercent } from "../../windowGeometry";
 import StatusDot from "../StatusDot";
 import { AGENT_STATUS_COLOR } from "../agentStatusPresentation";
@@ -61,8 +62,11 @@ type SettingsViewProps = {
   onScaleChange: (scale: number) => void;
   glassTransparency: number;
   onGlassTransparencyChange: (transparency: number) => void;
+  backgroundColor: IslandBackgroundColor;
+  onBackgroundColorChange: (color: IslandBackgroundColor) => void;
   expansionMotion: IslandExpansionMotion;
   onExpansionMotionChange: (motion: IslandExpansionMotion) => void;
+  onPreviewExpansionMotion: () => Promise<void>;
   compactWindowEnabled: boolean;
   onCompactWindowEnabledChange: (enabled: boolean) => void;
   notificationPopupEnabled: boolean;
@@ -79,8 +83,11 @@ export default function SettingsView({
   onScaleChange,
   glassTransparency,
   onGlassTransparencyChange,
+  backgroundColor,
+  onBackgroundColorChange,
   expansionMotion,
   onExpansionMotionChange,
+  onPreviewExpansionMotion,
   compactWindowEnabled,
   onCompactWindowEnabledChange,
   notificationPopupEnabled,
@@ -112,6 +119,8 @@ export default function SettingsView({
   const [updateError, setUpdateError] = useState<CommandError | null>(null);
   const [statusPreview, setStatusPreview] = useState<"working" | "idle">("idle");
   const [statusPreviewExpanded, setStatusPreviewExpanded] = useState(false);
+  const [expansionPreviewPending, setExpansionPreviewPending] = useState(false);
+  const [expansionPreviewFailed, setExpansionPreviewFailed] = useState(false);
   const [diagnosticsSession, restartDiagnosticsSession] = useReducer((value: number) => value + 1, 0);
   const handledRouteResetTokenRef = useRef<number | null>(null);
   const handledTraySequenceRef = useRef<number | null>(null);
@@ -143,6 +152,19 @@ export default function SettingsView({
   }), [glassTransparency, language, scalePercent, t]);
   const diagnosticsActive = route.level === "category" && route.category === "diagnostics";
   const remindersActive = route.level !== "root" && route.category === "reminders";
+
+  const previewExpansionMotion = useCallback(async () => {
+    if (expansionPreviewPending) return;
+    setExpansionPreviewPending(true);
+    setExpansionPreviewFailed(false);
+    try {
+      await onPreviewExpansionMotion();
+    } catch {
+      setExpansionPreviewFailed(true);
+    } finally {
+      setExpansionPreviewPending(false);
+    }
+  }, [expansionPreviewPending, onPreviewExpansionMotion]);
   const generalActive = route.level === "category" && route.category === "general";
   const ownsDiagnosticsGeneration = useCallback(
     (generation: number) =>
@@ -554,6 +576,34 @@ export default function SettingsView({
         )}
         {category.id === "display" && (
           <>
+            <div className="settings-control settings-background-control">
+              <div className="settings-control__copy">
+                <span>{t("settings.backgroundColor")}</span>
+                <span>{t("settings.backgroundColorHint")}</span>
+              </div>
+              <div className="settings-color-palette" role="group" aria-label={t("settings.backgroundColor")}>
+                {ISLAND_BACKGROUND_OPTIONS.map((option) => {
+                  const selected = backgroundColor === option.value;
+                  const label = t(option.labelKey);
+                  return (
+                    <div key={option.value} className="settings-color-option">
+                      <button
+                        type="button"
+                        className={`settings-color-swatch${selected ? " settings-color-swatch--active" : ""}`}
+                        aria-label={label}
+                        aria-pressed={selected}
+                        title={label}
+                        style={{ "--settings-swatch-color": option.hex } as CSSProperties}
+                        onClick={() => onBackgroundColorChange(option.value)}
+                      >
+                        <span className="settings-color-swatch__selected" aria-hidden="true">✓</span>
+                      </button>
+                      <span aria-hidden="true">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <div className="settings-control settings-glass-control">
               <div className="settings-control__heading">
                 <div className="settings-control__copy">
@@ -641,6 +691,22 @@ export default function SettingsView({
                   {t("settings.statusPreview")}
                 </button>
               </div>
+              <div className="settings-expansion-preview-row">
+                <button
+                  type="button"
+                  className="settings-expansion-preview-button"
+                  disabled={expansionPreviewPending}
+                  onClick={() => void previewExpansionMotion()}
+                >
+                  {t(expansionPreviewPending ? "settings.expansionPreview.pending" : "settings.expansionPreview")}
+                </button>
+                <span>{t("settings.expansionPreviewHint")}</span>
+              </div>
+              {expansionPreviewFailed && (
+                <p className="settings-error settings-expansion-preview-error" role="alert">
+                  {t("settings.expansionPreviewFailed")}
+                </p>
+              )}
               {statusPreviewExpanded && (
                 <div className="settings-motion-preview" data-testid="agent-state-motion-preview" data-preview-status={statusPreview}>
                   <div className="settings-motion-preview__sample" role="status" aria-live="polite">

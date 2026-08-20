@@ -66,6 +66,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "cursor_hook_profile",
         sql: include_str!("migrations/0010_cursor_hook_profile.sql"),
     },
+    Migration {
+        version: 11,
+        name: "note_recordings",
+        sql: include_str!("migrations/0011_note_recordings.sql"),
+    },
 ];
 
 pub struct Storage {
@@ -677,7 +682,7 @@ mod tests {
     fn fresh_database_applies_todo_notes_once() {
         let dir = tempfile::tempdir().unwrap();
         let storage = Storage::open(dir.path()).unwrap();
-        assert_eq!(storage.schema_version().unwrap(), 10);
+        assert_eq!(storage.schema_version().unwrap(), 11);
         drop(storage);
         let reopened = Storage::open(dir.path()).unwrap();
         let rows: Vec<(i64, String)> = reopened
@@ -706,6 +711,7 @@ mod tests {
                 (8, "agent_attention_statuses".into()),
                 (9, "agent_profile_reply_previews".into()),
                 (10, "cursor_hook_profile".into()),
+                (11, "note_recordings".into()),
             ]
         );
     }
@@ -714,7 +720,7 @@ mod tests {
     fn fresh_database_applies_clipboard_media_once() {
         let dir = tempfile::tempdir().unwrap();
         let storage = Storage::open(dir.path()).unwrap();
-        assert_eq!(storage.schema_version().unwrap(), 10);
+        assert_eq!(storage.schema_version().unwrap(), 11);
         let tables: Vec<String> = storage
             .with_connection(|connection| {
                 let mut statement = connection.prepare(
@@ -759,6 +765,7 @@ mod tests {
                 (8, "agent_attention_statuses".into()),
                 (9, "agent_profile_reply_previews".into()),
                 (10, "cursor_hook_profile".into()),
+                (11, "note_recordings".into()),
             ]
         );
     }
@@ -1695,6 +1702,7 @@ mod tests {
                 (8, "agent_attention_statuses".into()),
                 (9, "agent_profile_reply_previews".into()),
                 (10, "cursor_hook_profile".into()),
+                (11, "note_recordings".into()),
             ]
         );
     }
@@ -2047,10 +2055,10 @@ mod tests {
     fn fresh_database_applies_registered_migrations_once() {
         let dir = tempfile::tempdir().unwrap();
         let storage = Storage::open(dir.path()).unwrap();
-        assert_eq!(storage.schema_version().unwrap(), 10);
+        assert_eq!(storage.schema_version().unwrap(), 11);
         drop(storage);
         let reopened = Storage::open(dir.path()).unwrap();
-        assert_eq!(reopened.schema_version().unwrap(), 10);
+        assert_eq!(reopened.schema_version().unwrap(), 11);
         let count: i64 = reopened
             .with_connection(|connection| {
                 connection
@@ -2060,7 +2068,7 @@ mod tests {
                     .map_err(CommandError::from)
             })
             .unwrap();
-        assert_eq!(count, 10);
+        assert_eq!(count, 11);
     }
 
     #[test]
@@ -2085,7 +2093,7 @@ mod tests {
         drop(connection);
 
         let storage = Storage::open(dir.path()).unwrap();
-        assert_eq!(storage.schema_version().unwrap(), 10);
+        assert_eq!(storage.schema_version().unwrap(), 11);
         storage
             .with_connection(|connection| {
                 let mapping_status: String = connection.query_row(
@@ -2149,7 +2157,7 @@ mod tests {
         drop(connection);
 
         let storage = Storage::open(dir.path()).unwrap();
-        assert_eq!(storage.schema_version().unwrap(), 10);
+        assert_eq!(storage.schema_version().unwrap(), 11);
         storage
             .with_connection(|connection| {
                 assert_eq!(
@@ -2208,7 +2216,7 @@ mod tests {
         drop(storage);
 
         let reopened = Storage::open(dir.path()).unwrap();
-        assert_eq!(reopened.schema_version().unwrap(), 10);
+        assert_eq!(reopened.schema_version().unwrap(), 11);
         reopened
             .with_connection(|connection| {
                 assert_eq!(
@@ -2288,7 +2296,7 @@ mod tests {
         }
 
         for open in opens {
-            assert_eq!(open.join().unwrap().unwrap(), 10);
+            assert_eq!(open.join().unwrap().unwrap(), 11);
         }
 
         let storage = Storage::open(dir.path()).unwrap();
@@ -2301,6 +2309,6 @@ mod tests {
                     .map_err(CommandError::from)
             })
             .unwrap();
-        assert_eq!(count, 10);
+        assert_eq!(count, 11);
     }
 }

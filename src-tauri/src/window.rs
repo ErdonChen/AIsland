@@ -15,7 +15,7 @@ pub const TUCKED_VISIBLE_EDGE: f64 = 10.0;
 pub const TUCK_THRESHOLD_Y: f64 = 2.0;
 pub const COLLAPSED_CORNER_RADIUS: f64 = COLLAPSED_HEIGHT / 2.0;
 pub const EXPANDED_CORNER_RADIUS: f64 = 24.0;
-pub const WINDOW_ANIMATION_DURATION_MS: u64 = 360;
+pub const WINDOW_ANIMATION_DURATION_MS: u64 = 420;
 pub const WINDOW_ANIMATION_FRAME_MS: u64 = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,8 +42,8 @@ pub fn window_animation_spec(value: Option<&str>) -> Result<WindowAnimationSpec,
         motion,
         duration_ms: match motion {
             WindowAnimationMotion::Elastic => WINDOW_ANIMATION_DURATION_MS,
-            WindowAnimationMotion::Smooth => 400,
-            WindowAnimationMotion::Swift => 240,
+            WindowAnimationMotion::Smooth => 520,
+            WindowAnimationMotion::Swift => 180,
         },
     })
 }
@@ -619,14 +619,24 @@ mod tests {
             corner_radius: 24,
         };
 
-        let halfway = eased_window_frame(start, end, 180, WINDOW_ANIMATION_DURATION_MS);
+        let halfway = eased_window_frame(
+            start,
+            end,
+            WINDOW_ANIMATION_DURATION_MS / 2,
+            WINDOW_ANIMATION_DURATION_MS,
+        );
         assert_eq!(halfway.width, 546);
         assert_eq!(halfway.height, 295);
         assert_eq!(halfway.corner_radius, 24);
         assert_eq!(halfway.position.y, 12);
         assert!((halfway.top_center_x() - start.top_center_x()).abs() <= 1);
 
-        let rebound = eased_window_frame(start, end, 270, WINDOW_ANIMATION_DURATION_MS);
+        let rebound = eased_window_frame(
+            start,
+            end,
+            WINDOW_ANIMATION_DURATION_MS * 3 / 4,
+            WINDOW_ANIMATION_DURATION_MS,
+        );
         assert!(rebound.width > end.width);
         assert!(rebound.height > end.height);
 
@@ -660,24 +670,48 @@ mod tests {
             window_animation_spec(Some("elastic")).unwrap(),
             WindowAnimationSpec {
                 motion: WindowAnimationMotion::Elastic,
-                duration_ms: 360,
+                duration_ms: 420,
             }
         );
         assert_eq!(
             window_animation_spec(Some("smooth")).unwrap(),
             WindowAnimationSpec {
                 motion: WindowAnimationMotion::Smooth,
-                duration_ms: 400,
+                duration_ms: 520,
             }
         );
         assert_eq!(
             window_animation_spec(Some("swift")).unwrap(),
             WindowAnimationSpec {
                 motion: WindowAnimationMotion::Swift,
-                duration_ms: 240,
+                duration_ms: 180,
             }
         );
         assert!(window_animation_spec(Some("unknown")).is_err());
+
+        let start = PhysicalWindowFrame {
+            position: PhysicalPoint { x: 100, y: 12 },
+            width: 248,
+            height: 46,
+            corner_radius: 23,
+        };
+        let end = PhysicalWindowFrame {
+            position: PhysicalPoint { x: -56, y: 12 },
+            width: 560,
+            height: 306,
+            corner_radius: 24,
+        };
+        let frames = ["elastic", "smooth", "swift"].map(|motion| {
+            let spec = window_animation_spec(Some(motion)).unwrap();
+            eased_window_frame_with_spec(start, end, spec.duration_ms * 3 / 4, spec)
+        });
+        assert!(frames[0].width > end.width, "elastic visibly rebounds");
+        assert!(
+            frames[1].width < frames[2].width,
+            "smooth reveals more gently than swift"
+        );
+        assert_ne!(frames[0], frames[1]);
+        assert_ne!(frames[1], frames[2]);
     }
 
     #[test]
