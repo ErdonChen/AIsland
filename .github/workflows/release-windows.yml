@@ -76,6 +76,8 @@ jobs:
         shell: pwsh
         env:
           AUTHENTICODE_RELEASE_ENABLED: ${{ vars.AUTHENTICODE_RELEASE_ENABLED }}
+          AUTHENTICODE_CERTIFICATE_SHA1: ${{ secrets.AUTHENTICODE_CERTIFICATE_SHA1 }}
+          AUTHENTICODE_TIMESTAMP_URL: ${{ vars.AUTHENTICODE_TIMESTAMP_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
@@ -87,6 +89,17 @@ jobs:
           }
           if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
             throw "The TAURI_SIGNING_PRIVATE_KEY_PASSWORD repository secret is required."
+          }
+          if ($env:AUTHENTICODE_CERTIFICATE_SHA1 -notmatch '^[0-9A-Fa-f]{40}$') {
+            throw "AUTHENTICODE_CERTIFICATE_SHA1 must contain the 40-character SHA-1 thumbprint of the CI-visible code-signing certificate."
+          }
+          try {
+            $timestampUri = [uri]$env:AUTHENTICODE_TIMESTAMP_URL
+          } catch {
+            throw "AUTHENTICODE_TIMESTAMP_URL must be a valid RFC 3161 timestamp URL."
+          }
+          if ($timestampUri.Scheme -notin @('http', 'https')) {
+            throw "AUTHENTICODE_TIMESTAMP_URL must use http or https."
           }
 
           $config = Get-Content -Raw -LiteralPath src-tauri/tauri.conf.json | ConvertFrom-Json
@@ -101,6 +114,19 @@ jobs:
           }
           if ([string]::IsNullOrWhiteSpace([string]$config.plugins.updater.pubkey)) {
             throw "The updater public key must be embedded in tauri.conf.json."
+          }
+
+          $signedConfig = Get-Content -Raw -LiteralPath src-tauri/tauri.signed.conf.json | ConvertFrom-Json
+          if ($signedConfig.bundle.windows.digestAlgorithm -ne 'sha256') {
+            throw "The signed Tauri configuration must use the SHA-256 digest algorithm."
+          }
+          $signCommand = $signedConfig.bundle.windows.signCommand
+          if ($signCommand.cmd -ne 'pwsh') {
+            throw "The signed Tauri configuration must invoke the reviewed PowerShell signing wrapper."
+          }
+          $signArgs = @($signCommand.args)
+          if ($signArgs -notcontains '.\.github\scripts\sign-windows-artifact.ps1' -or $signArgs -notcontains '%1') {
+            throw "The signed Tauri configuration must pass each artifact to sign-windows-artifact.ps1."
           }
 
       - name: Install pnpm
@@ -142,6 +168,8 @@ jobs:
         uses: tauri-apps/tauri-action@944946e3e4cac6603d1fe8f514171e9ecd3c78aa # v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHENTICODE_CERTIFICATE_SHA1: ${{ secrets.AUTHENTICODE_CERTIFICATE_SHA1 }}
+          AUTHENTICODE_TIMESTAMP_URL: ${{ vars.AUTHENTICODE_TIMESTAMP_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -152,7 +180,7 @@ jobs:
           prerelease: false
           generateReleaseNotes: true
           tauriScript: pnpm tauri
-          args: --bundles nsis
+          args: --bundles nsis --config src-tauri/tauri.signed.conf.json
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true

@@ -5,8 +5,8 @@
 <h1 align="center">AIsland</h1>
 
 <p align="center">
-  More than a Dynamic Island for Windows—an aircraft carrier for parallel AI agents<br>
-  A simple, direct multi-agent monitor for Windows
+  A local-first multi-agent status hub for Windows and WSL<br>
+  See agent runs, completions, and latest replies without switching windows
 </p>
 
 <p align="center">
@@ -14,9 +14,19 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ErdonChen/AIsland/stargazers"><img src="https://img.shields.io/github/stars/ErdonChen/AIsland?style=flat-square" alt="GitHub stars"></a>
+  <a href="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml"><img src="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml/badge.svg?branch=main" alt="Community quality gate"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
   <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.5"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/aisland-demo.gif" alt="AIsland showing several agent states and automatic integration detection" width="960">
+</p>
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e">Watch the full 50-second demo</a>
 </p>
 
 ## Introduction
@@ -24,8 +34,6 @@
 AIsland is a floating Windows desktop app that keeps several AI agents in one place. You can see which agent is working, which one has finished, and what it replied most recently without switching between every agent window.
 
 The window stays compact when you do not need it and expands when you want more detail. AIsland also includes Windows notifications, daily Markdown notes, clipboard history, and system monitoring.
-
-https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e
 
 ## Starship view
 
@@ -133,11 +141,13 @@ Current version: [`preview-v0.1.0.5`](https://github.com/ErdonChen/AIsland/relea
 > [!WARNING]
 > This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.
 
+**Code signing policy:** AIsland has submitted its application to SignPath Foundation and is awaiting review. If approved and integrated, stable releases will use free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). Current preview releases remain explicitly unsigned.
+
 ## Current distribution status
 
 AIsland currently provides an unsigned Windows installer for technical testers, but only as a clearly labeled GitHub Pre-release. Its title and notes must say `Unsigned Preview`, include a SHA-256 checksum, never mark the release as `Latest`, and never publish `latest.json` or place the build on the stable updater channel.
 
-Stable releases for ordinary users, `Latest` releases, and portable executables still require a trusted Authenticode signature and must pass the signed-release gate. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust. See the [unsigned preview release guide](docs/unsigned-preview-release.md) and [Windows code-signing policy](docs/code-signing.md).
+Stable releases for ordinary users, `Latest` releases, and portable executables still require a trusted Authenticode signature and must pass the signed-release gate. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust. See the [unsigned preview release guide](docs/unsigned-preview-release.md) and [Code signing policy](docs/code-signing.md).
 
 Windows 11 x64 is the supported platform. Windows 10 x64 may work but is not included in the complete release gate. Windows on ARM, macOS, and Linux desktop builds are outside the first-release scope.
 
@@ -164,9 +174,16 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [Current architecture decisions](docs/decisions.md)
 - [Backend status](docs/backend-status.md)
 - [Frontend status](docs/frontend-status.md)
-- [Community / Pro boundary](docs/open-core.md)
 - [Unsigned preview release guide](docs/unsigned-preview-release.md)
-- [Windows code-signing policy](docs/code-signing.md)
+- [Code signing policy](docs/code-signing.md)
+
+## Support AIsland
+
+If AIsland improves your multi-agent workflow, star the repository, share it with another Windows agent user, or open an [Issue](https://github.com/ErdonChen/AIsland/issues) with feedback from a real setup. Reproducible reports directly help AIsland support more agents and WSL environments.
+
+## Acknowledgements
+
+Parts of AIsland's functionality were inspired by [@zzliu93-debug](https://github.com/zzliu93-debug). Thank you for sharing your work and explorations publicly.
 
 ## Contributing, privacy, and licensing
 
@@ -178,6 +195,6 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [Trademarks and branding](TRADEMARKS.md)
 - [Apache License 2.0](LICENSE)
 
-This repository is the Apache-2.0 Community Edition. Future paid Pro capabilities may be maintained separately under different terms. Already published Community code keeps its license, and security fixes plus major compatibility fixes for existing Community features remain free.
+This repository and every artifact it publishes are licensed under Apache-2.0.
 
 The public name, installer name, and internal product name are all AIsland. The application identifier is `com.aisland.app`.

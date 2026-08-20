@@ -5,8 +5,8 @@
 <h1 align="center">AIsland</h1>
 
 <p align="center">
-  不单只是 Windows 的灵动岛，更是多 Agent 并行的航空母舰<br>
-  简单直观的 Windows 多 Agent 监控工具
+  Windows 与 WSL 的本地优先多 Agent 状态中枢<br>
+  不切换窗口，也能看见 Agent 的运行、完成状态和最近回复
 </p>
 
 <p align="center">
@@ -14,9 +14,19 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ErdonChen/AIsland/stargazers"><img src="https://img.shields.io/github/stars/ErdonChen/AIsland?style=flat-square" alt="GitHub stars"></a>
+  <a href="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml"><img src="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml/badge.svg?branch=main" alt="Community quality gate"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
   <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.5"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/aisland-demo.gif" alt="AIsland 同时显示多个 Agent 的状态并自动检测接入" width="960">
+</p>
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e">观看完整 50 秒演示视频</a>
 </p>
 
 ## 简介
@@ -24,8 +34,6 @@
 AIsland 是一款运行在 Windows 上的桌面悬浮工具。它把多个 AI Agent 的状态集中到屏幕顶部，让你不用来回切换窗口，也能知道谁正在工作、谁已经完成，以及 Agent 刚刚回复了什么。
 
 窗口平时保持紧凑，需要时可以展开。除了 Agent 监控，AIsland 还集成了 Windows 通知、Markdown 每日笔记、剪贴板历史和系统监控。
-
-https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e
 
 ## 星舰视图
 
@@ -133,11 +141,13 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 > [!WARNING]
 > 这是面向技术测试用户的未签名预览版。Windows SmartScreen 和 UAC 可能显示“未知发布者”。请只从 AIsland 官方 GitHub 仓库下载，并在运行前核对 SHA-256；不要关闭 Microsoft Defender 或 SmartScreen。
 
+**Code signing policy：**AIsland 已向 SignPath Foundation 提交申请，目前等待审核。获批并完成集成后，正式版将采用“由 [SignPath.io](https://about.signpath.io) 免费提供代码签名、由 [SignPath Foundation](https://signpath.org) 提供证书”；当前预览版仍明确保持未签名状态。
+
 ## 当前发布状态
 
 项目当前为技术测试用户提供未签名 Windows 安装包，但只能作为明确标注的 GitHub Pre-release：发布标题和说明必须注明“未签名预览版”，附带 SHA-256，不得标记为 `Latest`，也不得发布 `latest.json` 或进入正式自动更新通道。
 
-面向普通用户的正式版、`Latest` 和便携 EXE 仍须取得受信任的 Authenticode 签名，并通过签名发布门禁。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。具体规则见[未签名预览版发布指南](docs/unsigned-preview-release.md)和[Windows 代码签名政策](docs/code-signing.md)。
+面向普通用户的正式版、`Latest` 和便携 EXE 仍须取得受信任的 Authenticode 签名，并通过签名发布门禁。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。具体规则见[未签名预览版发布指南](docs/unsigned-preview-release.md)和[Code signing policy / Windows 代码签名政策](docs/code-signing.md)。
 
 当前正式支持 Windows 11 x64。Windows 10 x64 可能兼容，但尚未纳入完整门禁；Windows ARM、macOS 和 Linux 桌面版不在首版支持范围。
 
@@ -164,9 +174,16 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [当前架构决策](docs/decisions.md)
 - [后端状态](docs/backend-status.md)
 - [前端状态](docs/frontend-status.md)
-- [Community / Pro 边界](docs/open-core.md)
 - [未签名预览版发布指南](docs/unsigned-preview-release.md)
-- [Windows 代码签名政策](docs/code-signing.md)
+- [Code signing policy / Windows 代码签名政策](docs/code-signing.md)
+
+## 支持 AIsland
+
+如果 AIsland 对你的多 Agent 工作流有帮助，欢迎点亮仓库右上角的 Star、把它分享给其他 Windows Agent 用户，或通过 [Issue](https://github.com/ErdonChen/AIsland/issues) 提交真实环境反馈。每一份可复现的反馈都会直接帮助兼容更多 Agent 和 WSL 环境。
+
+## 致谢
+
+AIsland 的部分功能设计受到 [@zzliu93-debug](https://github.com/zzliu93-debug) 的启发，感谢其公开分享与探索。
 
 ## 参与、隐私与许可
 
@@ -178,6 +195,6 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [商标与品牌](TRADEMARKS.md)
 - [Apache License 2.0](LICENSE)
 
-本仓库是 Apache-2.0 许可的 Community Edition。未来可能推出独立维护、单独许可的付费 Pro 功能；已经发布的 Community 代码不会因此改变许可，现有 Community 功能的安全修复和重大兼容性修复仍保持免费。
+本仓库及其发布产物均采用 Apache-2.0 许可。
 
 应用对外名称、安装器名称和内部名称统一使用 AIsland，应用标识为 `com.aisland.app`。
