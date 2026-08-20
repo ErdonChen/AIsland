@@ -5,8 +5,8 @@
 <h1 align="center">AIsland</h1>
 
 <p align="center">
-  More than a Dynamic Island for Windows—an aircraft carrier for parallel AI agents<br>
-  A simple, direct multi-agent monitor for Windows
+  A local-first multi-agent status hub for Windows and WSL<br>
+  See agent runs, completions, and latest replies without switching windows
 </p>
 
 <p align="center">
@@ -14,9 +14,19 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ErdonChen/AIsland/stargazers"><img src="https://img.shields.io/github/stars/ErdonChen/AIsland?style=flat-square" alt="GitHub stars"></a>
+  <a href="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml"><img src="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml/badge.svg?branch=main" alt="Community quality gate"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
   <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.5"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/aisland-demo.gif" alt="AIsland showing several agent states and automatic integration detection" width="960">
+</p>
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e">Watch the full 50-second demo</a>
 </p>
 
 ## Introduction
@@ -24,8 +34,6 @@
 AIsland is a floating Windows desktop app that keeps several AI agents in one place. You can see which agent is working, which one has finished, and what it replied most recently without switching between every agent window.
 
 The window stays compact when you do not need it and expands when you want more detail. AIsland also includes Windows notifications, daily Markdown notes, clipboard history, and system monitoring.
-
-https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e
 
 ## Starship view
 
@@ -167,6 +175,10 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [Community / Pro boundary](docs/open-core.md)
 - [Unsigned preview release guide](docs/unsigned-preview-release.md)
 - [Windows code-signing policy](docs/code-signing.md)
+
+## Support AIsland
+
+If AIsland improves your multi-agent workflow, star the repository, share it with another Windows agent user, or open an [Issue](https://github.com/ErdonChen/AIsland/issues) with feedback from a real setup. Reproducible reports directly help AIsland support more agents and WSL environments.
 
 ## Contributing, privacy, and licensing
 

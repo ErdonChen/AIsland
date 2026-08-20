@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const workflowPath = resolve(scriptDirectory, "../workflows/release-windows.yml");
+const signedConfigPath = resolve(scriptDirectory, "../../src-tauri/tauri.signed.conf.json");
+const signingScriptPath = resolve(scriptDirectory, "sign-windows-artifact.ps1");
 
 test("the Windows release workflow fails closed and keeps verified updater assets private by default", async () => {
   const workflow = await readFile(workflowPath, "utf8");
@@ -23,6 +25,9 @@ test("the Windows release workflow fails closed and keeps verified updater asset
   assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY_PASSWORD:\s*\$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY_PASSWORD \}\}/);
   assert.match(workflow, /AUTHENTICODE_RELEASE_ENABLED:\s*\$\{\{ vars\.AUTHENTICODE_RELEASE_ENABLED \}\}/);
   assert.match(workflow, /AUTHENTICODE_RELEASE_ENABLED -ne ["']true["']/);
+  assert.match(workflow, /AUTHENTICODE_CERTIFICATE_SHA1:\s*\$\{\{ secrets\.AUTHENTICODE_CERTIFICATE_SHA1 \}\}/);
+  assert.match(workflow, /AUTHENTICODE_TIMESTAMP_URL:\s*\$\{\{ vars\.AUTHENTICODE_TIMESTAMP_URL \}\}/);
+  assert.match(workflow, /tauri\.signed\.conf\.json/);
   assert.match(workflow, /createUpdaterArtifacts/);
   assert.match(workflow, /https:\/\/github\.com\/ErdonChen\/AIsland\/releases\/latest\/download\/latest\.json/);
   assert.match(workflow, /uploadUpdaterJson:\s*true/);
@@ -53,4 +58,25 @@ test("the Windows release workflow fails closed and keeps verified updater asset
     "publication must require an explicit manual publish choice",
   );
   assert.doesNotMatch(workflow, /-----BEGIN (?:OPENSSH |RSA )?PRIVATE KEY-----/);
+});
+
+test("the signed Tauri overlay routes every Windows artifact through the reviewed signing wrapper", async () => {
+  const signedConfig = JSON.parse(await readFile(signedConfigPath, "utf8"));
+  const windows = signedConfig.bundle?.windows;
+
+  assert.equal(windows?.digestAlgorithm, "sha256");
+  assert.equal(windows?.signCommand?.cmd, "pwsh");
+  assert.ok(windows?.signCommand?.args?.includes(".\\.github\\scripts\\sign-windows-artifact.ps1"));
+  assert.ok(windows?.signCommand?.args?.includes("%1"));
+
+  const signingScript = await readFile(signingScriptPath, "utf8");
+  assert.match(signingScript, /AUTHENTICODE_CERTIFICATE_SHA1/);
+  assert.match(signingScript, /AUTHENTICODE_TIMESTAMP_URL/);
+  assert.match(signingScript, /signtool(?:\.exe)?/i);
+  assert.match(signingScript, /\/fd["']?,?\s*["']?SHA256/i);
+  assert.match(signingScript, /\/tr/);
+  assert.match(signingScript, /\/td["']?,?\s*["']?SHA256/i);
+  assert.match(signingScript, /Get-AuthenticodeSignature/);
+  assert.match(signingScript, /TimeStamperCertificate/);
+  assert.doesNotMatch(signingScript, /BEGIN (?:OPENSSH |RSA )?PRIVATE KEY/);
 });

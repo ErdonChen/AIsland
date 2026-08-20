@@ -5,8 +5,8 @@
 <h1 align="center">AIsland</h1>
 
 <p align="center">
-  不单只是 Windows 的灵动岛，更是多 Agent 并行的航空母舰<br>
-  简单直观的 Windows 多 Agent 监控工具
+  Windows 与 WSL 的本地优先多 Agent 状态中枢<br>
+  不切换窗口，也能看见 Agent 的运行、完成状态和最近回复
 </p>
 
 <p align="center">
@@ -14,9 +14,19 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ErdonChen/AIsland/stargazers"><img src="https://img.shields.io/github/stars/ErdonChen/AIsland?style=flat-square" alt="GitHub stars"></a>
+  <a href="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml"><img src="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml/badge.svg?branch=main" alt="Community quality gate"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
   <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.5"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/aisland-demo.gif" alt="AIsland 同时显示多个 Agent 的状态并自动检测接入" width="960">
+</p>
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e">观看完整 50 秒演示视频</a>
 </p>
 
 ## 简介
@@ -24,8 +34,6 @@
 AIsland 是一款运行在 Windows 上的桌面悬浮工具。它把多个 AI Agent 的状态集中到屏幕顶部，让你不用来回切换窗口，也能知道谁正在工作、谁已经完成，以及 Agent 刚刚回复了什么。
 
 窗口平时保持紧凑，需要时可以展开。除了 Agent 监控，AIsland 还集成了 Windows 通知、Markdown 每日笔记、剪贴板历史和系统监控。
-
-https://github.com/user-attachments/assets/9622b5f2-1d83-408c-83ab-e0501eba460e
 
 ## 星舰视图
 
@@ -167,6 +175,10 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [Community / Pro 边界](docs/open-core.md)
 - [未签名预览版发布指南](docs/unsigned-preview-release.md)
 - [Windows 代码签名政策](docs/code-signing.md)
+
+## 支持 AIsland
+
+如果 AIsland 对你的多 Agent 工作流有帮助，欢迎点亮仓库右上角的 Star、把它分享给其他 Windows Agent 用户，或通过 [Issue](https://github.com/ErdonChen/AIsland/issues) 提交真实环境反馈。每一份可复现的反馈都会直接帮助兼容更多 Agent 和 WSL 环境。
 
 ## 参与、隐私与许可
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "signCommand": {
+        "cmd": "pwsh",
+        "args": [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          ".\\.github\\scripts\\sign-windows-artifact.ps1",
+          "%1"
+        ]
+      }
+    }
+  }
+}
