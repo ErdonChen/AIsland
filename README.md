@@ -16,7 +16,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.4"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.5"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 ## 简介
@@ -124,11 +124,11 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 
 ## 下载 Windows 预览版
 
-当前版本：[`preview-v0.1.0.4`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.4)
+当前版本：[`preview-v0.1.0.5`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.1.0.5)
 
-- [下载 Windows 11 x64 NSIS 安装包](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.4/AIsland_0.1.0_x64-setup.exe)
-- [查看 SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.4/SHA256SUMS.txt)
-- SHA-256：`e9747f39943de349ab205a143919d07c89c44a03cc3b8e581b9f0ecbc0ad9c5d`
+- [下载 Windows 11 x64 NSIS 安装包](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.5/AIsland_0.1.0_x64-setup.exe)
+- [查看 SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.1.0.5/SHA256SUMS.txt)
+- SHA-256：`09b2218bc6488e4cb8f6981d0f4963c371e98debb2f589e5212cdd24fef4c2f3`
 
 > [!WARNING]
 > 这是面向技术测试用户的未签名预览版。Windows SmartScreen 和 UAC 可能显示“未知发布者”。请只从 AIsland 官方 GitHub 仓库下载，并在运行前核对 SHA-256；不要关闭 Microsoft Defender 或 SmartScreen。
