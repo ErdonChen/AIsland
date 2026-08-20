@@ -141,7 +141,7 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 > [!WARNING]
 > 这是面向技术测试用户的未签名预览版。Windows SmartScreen 和 UAC 可能显示“未知发布者”。请只从 AIsland 官方 GitHub 仓库下载，并在运行前核对 SHA-256；不要关闭 Microsoft Defender 或 SmartScreen。
 
-**Code signing policy：**AIsland 正在申请 SignPath Foundation。获批并完成集成后，正式版将使用 [SignPath.io](https://about.signpath.io) 提供的免费代码签名及 [SignPath Foundation](https://signpath.org) 证书；当前预览版仍明确保持未签名状态。
+**Code signing policy：**AIsland 已向 SignPath Foundation 提交申请，目前等待审核。获批并完成集成后，正式版将采用“由 [SignPath.io](https://about.signpath.io) 免费提供代码签名、由 [SignPath Foundation](https://signpath.org) 提供证书”；当前预览版仍明确保持未签名状态。
 
 ## 当前发布状态
 
@@ -180,6 +180,10 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 ## 支持 AIsland
 
 如果 AIsland 对你的多 Agent 工作流有帮助，欢迎点亮仓库右上角的 Star、把它分享给其他 Windows Agent 用户，或通过 [Issue](https://github.com/ErdonChen/AIsland/issues) 提交真实环境反馈。每一份可复现的反馈都会直接帮助兼容更多 Agent 和 WSL 环境。
+
+## 致谢
+
+AIsland 的部分功能设计受到 [@zzliu93-debug](https://github.com/zzliu93-debug) 的启发，感谢其公开分享与探索。
 
 ## 参与、隐私与许可
 

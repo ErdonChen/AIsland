@@ -141,7 +141,7 @@ Current version: [`preview-v0.1.0.5`](https://github.com/ErdonChen/AIsland/relea
 > [!WARNING]
 > This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.
 
-**Code signing policy:** AIsland is applying to SignPath Foundation. If approved and integrated, stable releases will use free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). Current preview releases remain explicitly unsigned.
+**Code signing policy:** AIsland has submitted its application to SignPath Foundation and is awaiting review. If approved and integrated, stable releases will use free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). Current preview releases remain explicitly unsigned.
 
 ## Current distribution status
 
@@ -180,6 +180,10 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 ## Support AIsland
 
 If AIsland improves your multi-agent workflow, star the repository, share it with another Windows agent user, or open an [Issue](https://github.com/ErdonChen/AIsland/issues) with feedback from a real setup. Reproducible reports directly help AIsland support more agents and WSL environments.
+
+## Acknowledgements
+
+Parts of AIsland's functionality were inspired by [@zzliu93-debug](https://github.com/zzliu93-debug). Thank you for sharing your work and explorations publicly.
 
 ## Contributing, privacy, and licensing
 
