@@ -10,6 +10,8 @@ For a China mainland individual applicant, a trusted provider has not yet been p
 
 ## Public code-signing policy
 
+AIsland is applying to SignPath Foundation. If the application is approved and the integration is enabled, stable releases will use **free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)**. Current preview releases remain explicitly unsigned until that integration passes the stable release gate.
+
 - **Project owner and release approver:** ErdonChen.
 - **Source authors and reviewers:** changes enter the release branch through GitHub pull requests and the `Community quality gate`; the release approver must review the final tagged source and passing checks.
 - **Trusted build:** stable artifacts are built from an existing `v<semver>` tag by `.github/workflows/release-windows.yml`. The workflow starts with an explicit release gate and keeps the GitHub release as a draft until signature and updater verification pass.

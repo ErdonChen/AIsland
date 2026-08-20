@@ -141,11 +141,13 @@ AIsland 在本机运行，并以只读方式访问受支持 Agent 的会话源�
 > [!WARNING]
 > 这是面向技术测试用户的未签名预览版。Windows SmartScreen 和 UAC 可能显示“未知发布者”。请只从 AIsland 官方 GitHub 仓库下载，并在运行前核对 SHA-256；不要关闭 Microsoft Defender 或 SmartScreen。
 
+**Code signing policy：**AIsland 正在申请 SignPath Foundation。获批并完成集成后，正式版将使用 [SignPath.io](https://about.signpath.io) 提供的免费代码签名及 [SignPath Foundation](https://signpath.org) 证书；当前预览版仍明确保持未签名状态。
+
 ## 当前发布状态
 
 项目当前为技术测试用户提供未签名 Windows 安装包，但只能作为明确标注的 GitHub Pre-release：发布标题和说明必须注明“未签名预览版”，附带 SHA-256，不得标记为 `Latest`，也不得发布 `latest.json` 或进入正式自动更新通道。
 
-面向普通用户的正式版、`Latest` 和便携 EXE 仍须取得受信任的 Authenticode 签名，并通过签名发布门禁。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。具体规则见[未签名预览版发布指南](docs/unsigned-preview-release.md)和[Windows 代码签名政策](docs/code-signing.md)。
+面向普通用户的正式版、`Latest` 和便携 EXE 仍须取得受信任的 Authenticode 签名，并通过签名发布门禁。Tauri 更新签名只负责更新完整性，不能代替 Windows 的 Authenticode 信任。具体规则见[未签名预览版发布指南](docs/unsigned-preview-release.md)和[Code signing policy / Windows 代码签名政策](docs/code-signing.md)。
 
 当前正式支持 Windows 11 x64。Windows 10 x64 可能兼容，但尚未纳入完整门禁；Windows ARM、macOS 和 Linux 桌面版不在首版支持范围。
 
@@ -172,9 +174,8 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [当前架构决策](docs/decisions.md)
 - [后端状态](docs/backend-status.md)
 - [前端状态](docs/frontend-status.md)
-- [Community / Pro 边界](docs/open-core.md)
 - [未签名预览版发布指南](docs/unsigned-preview-release.md)
-- [Windows 代码签名政策](docs/code-signing.md)
+- [Code signing policy / Windows 代码签名政策](docs/code-signing.md)
 
 ## 支持 AIsland
 
@@ -190,6 +191,6 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [商标与品牌](TRADEMARKS.md)
 - [Apache License 2.0](LICENSE)
 
-本仓库是 Apache-2.0 许可的 Community Edition。未来可能推出独立维护、单独许可的付费 Pro 功能；已经发布的 Community 代码不会因此改变许可，现有 Community 功能的安全修复和重大兼容性修复仍保持免费。
+本仓库及其发布产物均采用 Apache-2.0 许可。
 
 应用对外名称、安装器名称和内部名称统一使用 AIsland，应用标识为 `com.aisland.app`。

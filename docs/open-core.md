@@ -6,9 +6,9 @@ This repository is AIsland Community Edition and is licensed under Apache-2.0. I
 
 Existing Community features remain free. Security fixes and major compatibility fixes for those features will continue to be made available in the Community Edition.
 
-## Future paid products
+## Separate future products
 
-A future AIsland Pro edition may add paid capabilities in a separate codebase or separately licensed modules. Pro code, services, commercial assets, signing credentials, and private infrastructure are not part of this repository. The existence of a Pro edition does not change the Apache-2.0 terms for code already released here.
+If a paid AIsland Pro product is created in the future, it will use a completely separate repository. Pro code, services, commercial assets, signing credentials, and private infrastructure are not part of this repository or any artifact submitted to SignPath for signing. This repository does not use commercial dual licensing: all of its components and published artifacts remain under Apache-2.0-compatible open-source terms.
 
 Contributions to this repository are accepted for the Community Edition under Apache-2.0 and the Developer Certificate of Origin 1.1. AIsland does not require a CLA that grants additional proprietary relicensing rights.
 

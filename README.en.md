@@ -141,11 +141,13 @@ Current version: [`preview-v0.1.0.5`](https://github.com/ErdonChen/AIsland/relea
 > [!WARNING]
 > This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.
 
+**Code signing policy:** AIsland is applying to SignPath Foundation. If approved and integrated, stable releases will use free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). Current preview releases remain explicitly unsigned.
+
 ## Current distribution status
 
 AIsland currently provides an unsigned Windows installer for technical testers, but only as a clearly labeled GitHub Pre-release. Its title and notes must say `Unsigned Preview`, include a SHA-256 checksum, never mark the release as `Latest`, and never publish `latest.json` or place the build on the stable updater channel.
 
-Stable releases for ordinary users, `Latest` releases, and portable executables still require a trusted Authenticode signature and must pass the signed-release gate. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust. See the [unsigned preview release guide](docs/unsigned-preview-release.md) and [Windows code-signing policy](docs/code-signing.md).
+Stable releases for ordinary users, `Latest` releases, and portable executables still require a trusted Authenticode signature and must pass the signed-release gate. Tauri updater signatures protect update integrity but do not replace Windows Authenticode trust. See the [unsigned preview release guide](docs/unsigned-preview-release.md) and [Code signing policy](docs/code-signing.md).
 
 Windows 11 x64 is the supported platform. Windows 10 x64 may work but is not included in the complete release gate. Windows on ARM, macOS, and Linux desktop builds are outside the first-release scope.
 
@@ -172,9 +174,8 @@ npx --yes pnpm@10.15.0 tauri build --no-bundle
 - [Current architecture decisions](docs/decisions.md)
 - [Backend status](docs/backend-status.md)
 - [Frontend status](docs/frontend-status.md)
-- [Community / Pro boundary](docs/open-core.md)
 - [Unsigned preview release guide](docs/unsigned-preview-release.md)
-- [Windows code-signing policy](docs/code-signing.md)
+- [Code signing policy](docs/code-signing.md)
 
 ## Support AIsland
 
@@ -190,6 +191,6 @@ If AIsland improves your multi-agent workflow, star the repository, share it wit
 - [Trademarks and branding](TRADEMARKS.md)
 - [Apache License 2.0](LICENSE)
 
-This repository is the Apache-2.0 Community Edition. Future paid Pro capabilities may be maintained separately under different terms. Already published Community code keeps its license, and security fixes plus major compatibility fixes for existing Community features remain free.
+This repository and every artifact it publishes are licensed under Apache-2.0.
 
 The public name, installer name, and internal product name are all AIsland. The application identifier is `com.aisland.app`.
