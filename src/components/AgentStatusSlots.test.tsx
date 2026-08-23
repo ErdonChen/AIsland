@@ -234,6 +234,28 @@ test("qualifies completed, failed, waiting, and timeout observations for compact
   ]));
 });
 
+test("limits orbiting attention to the two leading signals while preserving later static markers", async () => {
+  const attentionAgents: AgentSummary[] = [
+    { agentId: "codex", displayName: "Codex", aggregateStatus: "completed", integrations: [], environments: [{ agentId: "codex", environment: "windows", taskId: "done", status: "completed", summary: "", sourceEventId: "done-1", occurredAt: 1, receivedAt: 1 }] },
+    { agentId: "hermes", displayName: "Hermes", aggregateStatus: "failed", integrations: [], environments: [{ agentId: "hermes", environment: "windows", taskId: "failed", status: "failed", summary: "", sourceEventId: "failed-2", occurredAt: 2, receivedAt: 2 }] },
+    { agentId: "workbuddy", displayName: "WorkBuddy", aggregateStatus: "waiting", integrations: [], environments: [{ agentId: "workbuddy", environment: "windows", taskId: "waiting", status: "waiting", summary: "", sourceEventId: "waiting-3", occurredAt: 3, receivedAt: 3 }] },
+  ];
+  const attentionSignalKeys = new Set(compactAttentionSignalKeys(attentionAgents, []));
+  const componentPath = "./AgentStatusSlots";
+  const { default: AgentStatusSlots } = await import(componentPath);
+
+  render(
+    <I18nProvider>
+      <AgentStatusSlots agents={attentionAgents} attentionSignalKeys={attentionSignalKeys} onOpenAgent={vi.fn()} />
+    </I18nProvider>,
+  );
+
+  const attentionButtons = [...document.querySelectorAll(".agent-logo-button--attention")];
+  expect(attentionButtons).toHaveLength(3);
+  expect(attentionButtons.map((button) => button.classList.contains("agent-logo-button--attention-orbit")))
+    .toEqual([true, true, false]);
+});
+
 test("omits a zero overflow control and keeps slot interactions out of the drag region", async () => {
   // Adding +0 or allowing a slot pointer event to bubble into dragging must fail this contract.
   const componentPath = "./AgentStatusSlots";

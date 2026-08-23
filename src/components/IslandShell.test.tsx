@@ -1448,6 +1448,7 @@ test("prioritizes new compact completion and intervention signals until a confir
     "hermes",
     "workbuddy",
   ]);
+  expect(container.querySelectorAll(".agent-logo-button--attention-orbit")).toHaveLength(2);
 
   await user.click(screen.getByRole("button", { name: "展开" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "折叠" })).toBeEnabled());

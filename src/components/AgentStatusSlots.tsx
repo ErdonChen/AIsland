@@ -174,6 +174,16 @@ export function visibleAgentCapacityForWidth(width: number) {
 export default function AgentStatusSlots({ agents, compactWidth = 720, profileSummaries = [], onOpenAgent, onOpenProfile, statusColors = AGENT_STATUS_COLOR, attentionSignalKeys }: AgentStatusSlotsProps) {
   const { t } = useI18n();
   const sorted = useMemo<StatusSlot[]>(() => collectStatusSlots(agents, profileSummaries), [agents, profileSummaries]);
+  const orbitAttentionSignalKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const slot of sorted) {
+      const key = compactAttentionSignalKey(slot);
+      if (key === null || attentionSignalKeys?.has(key) !== true) continue;
+      keys.push(key);
+      if (keys.length === 2) break;
+    }
+    return new Set(keys);
+  }, [attentionSignalKeys, sorted]);
   const visibleCapacity = visibleAgentCapacityForWidth(compactWidth);
   const hiddenCount = Math.max(0, sorted.length - visibleCapacity);
   const running = sorted.some((slot) => slot.status === "running");
@@ -200,9 +210,10 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
         {sorted.slice(0, visibleCapacity).map((slot) => {
           const signalKey = compactAttentionSignalKey(slot);
           const showAttention = signalKey !== null && attentionSignalKeys?.has(signalKey) === true;
+          const showOrbit = signalKey !== null && orbitAttentionSignalKeys.has(signalKey);
           const attentionProps = showAttention
             ? {
-                className: "agent-logo-button agent-logo-button--attention",
+                className: `agent-logo-button agent-logo-button--attention${showOrbit ? " agent-logo-button--attention-orbit" : ""}`,
                 "data-attention-signal": signalKey,
                 style: { "--agent-attention-color": statusColors[slot.status] } as CSSProperties,
               }
