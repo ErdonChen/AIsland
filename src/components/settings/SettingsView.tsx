@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -45,6 +45,22 @@ const EXPANSION_MOTION_OPTIONS: readonly { value: IslandExpansionMotion; key: Tr
   { value: "smooth", key: "settings.expansionMotion.smooth" },
   { value: "swift", key: "settings.expansionMotion.swift" },
 ];
+
+const SCALE_SLIDER_THUMB_SIZE = 17;
+
+type FixedScaleTrack = {
+  pointerId: number;
+  left: number;
+  width: number;
+  thumbSize: number;
+};
+
+function sliderPositionFromFixedTrack(screenX: number, track: FixedScaleTrack) {
+  const thumbInset = track.thumbSize / 2;
+  const usableWidth = Math.max(1, track.width - track.thumbSize);
+  const ratio = (screenX - track.left - thumbInset) / usableWidth;
+  return Math.round(Math.min(100, Math.max(0, ratio * 100)));
+}
 
 const STATUS_COLOR_ROLES: readonly {
   value: StatusColorRole;
@@ -163,6 +179,8 @@ export default function SettingsView({
   const remindersActiveRef = useRef(false);
   const reminderRulesGenerationRef = useRef(0);
   const reminderRouteGenerationRef = useRef(0);
+  const scalePointerTrackRef = useRef<FixedScaleTrack | null>(null);
+  const ignoreNativeScaleChangeRef = useRef(false);
   const category = route.level === "root" ? null : settingsCategoryById(route.category);
   const scaleSliderPosition = Math.round(sliderPositionFromScale(scale));
   const scalePercent = windowScalePercent(scale);
@@ -227,6 +245,57 @@ export default function SettingsView({
       setExpansionPreviewPending(false);
     }
   }, [expansionPreviewPending, onPreviewExpansionMotion]);
+  const updateScaleFromPointer = useCallback((screenX: number) => {
+    const track = scalePointerTrackRef.current;
+    if (track === null) return;
+    onScaleChange(scaleFromSliderPosition(sliderPositionFromFixedTrack(screenX, track)));
+  }, [onScaleChange]);
+  const beginScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (event.button !== 0) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const screenOffsetX = event.screenX - event.clientX;
+    scalePointerTrackRef.current = {
+      pointerId: event.pointerId,
+      left: screenOffsetX + bounds.left,
+      width: bounds.width,
+      thumbSize: SCALE_SLIDER_THUMB_SIZE * scale,
+    };
+    ignoreNativeScaleChangeRef.current = true;
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+    updateScaleFromPointer(event.screenX);
+  }, [scale, updateScaleFromPointer]);
+  const continueScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (scalePointerTrackRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    updateScaleFromPointer(event.screenX);
+  }, [updateScaleFromPointer]);
+  const finishScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (scalePointerTrackRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    updateScaleFromPointer(event.screenX);
+    scalePointerTrackRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    queueMicrotask(() => {
+      ignoreNativeScaleChangeRef.current = false;
+    });
+  }, [updateScaleFromPointer]);
+  const cancelScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (scalePointerTrackRef.current?.pointerId !== event.pointerId) return;
+    scalePointerTrackRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    queueMicrotask(() => {
+      ignoreNativeScaleChangeRef.current = false;
+    });
+  }, []);
   const generalActive = route.level === "category" && route.category === "general";
   const ownsDiagnosticsGeneration = useCallback(
     (generation: number) =>
@@ -751,8 +820,15 @@ export default function SettingsView({
                   aria-label={t("settings.scale")}
                   aria-valuetext={`${scalePercent}%`}
                   style={{ "--range-progress": `${scaleSliderPosition}%` } as CSSProperties}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onChange={(event) => onScaleChange(scaleFromSliderPosition(Number(event.currentTarget.value)))}
+                  onPointerDown={beginScalePointerDrag}
+                  onPointerMove={continueScalePointerDrag}
+                  onPointerUp={finishScalePointerDrag}
+                  onPointerCancel={cancelScalePointerDrag}
+                  onLostPointerCapture={cancelScalePointerDrag}
+                  onChange={(event) => {
+                    if (scalePointerTrackRef.current !== null || ignoreNativeScaleChangeRef.current) return;
+                    onScaleChange(scaleFromSliderPosition(Number(event.currentTarget.value)));
+                  }}
                 />
                 <div className="settings-range__labels" aria-hidden="true">
                   <span>80%</span>

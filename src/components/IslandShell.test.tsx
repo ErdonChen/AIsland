@@ -1177,7 +1177,7 @@ test("keeps a failed daily-note draft across tab changes and shell collapse", as
   vi.useRealTimers();
 });
 
-test("keeps the confirmed scale active until the native scale transaction succeeds", async () => {
+test("previews the requested scale immediately while the native scale transaction settles", async () => {
   const nativeScale = deferred<void>();
   invokeMock.mockImplementation((command: string) => {
     if (command === "get_initial_state") return Promise.resolve(INITIAL_STATE);
@@ -1197,8 +1197,8 @@ test("keeps the confirmed scale active until the native scale transaction succee
   const slider = screen.getByRole("slider", { name: "窗口缩放" });
   fireEvent.change(slider, { target: { value: "75" } });
 
-  expect(slider).toHaveValue("50");
-  expect(slider).toHaveAttribute("aria-valuetext", "100%");
+  expect(slider).toHaveValue("75");
+  expect(slider).toHaveAttribute("aria-valuetext", "160%");
 
   await act(async () => {
     nativeScale.resolve();
@@ -1228,6 +1228,9 @@ test("keeps the prior confirmed scale active when the native scale transaction r
   await user.click(screen.getByRole("button", { name: "显示与外观" }));
   const slider = screen.getByRole("slider", { name: "窗口缩放" });
   fireEvent.change(slider, { target: { value: "75" } });
+
+  expect(slider).toHaveValue("75");
+  expect(slider).toHaveAttribute("aria-valuetext", "160%");
 
   await act(async () => {
     nativeScale.reject(new Error("native rejected scale"));
@@ -1679,12 +1682,16 @@ test("prevents overlapping expansion previews and surfaces a recoverable native 
   expect(screen.getByRole("button", { name: "预览展开动效" })).toBeEnabled();
 });
 
-test("confirms only the latest rapid scale selection after the single-flight requests settle", async () => {
+test("keeps the latest rapid scale selection visible while single-flight native requests settle", async () => {
   const firstNativeScale = deferred<void>();
   const secondNativeScale = deferred<void>();
   const requestedScales: number[] = [];
+  let initialStateReads = 0;
   invokeMock.mockImplementation((command: string, args?: { scale?: number }) => {
-    if (command === "get_initial_state") return Promise.resolve(INITIAL_STATE);
+    if (command === "get_initial_state") {
+      initialStateReads += 1;
+      return Promise.resolve(INITIAL_STATE);
+    }
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     if (command === "set_island_scale") {
@@ -1705,7 +1712,8 @@ test("confirms only the latest rapid scale selection after the single-flight req
   fireEvent.change(slider, { target: { value: "60" } });
   fireEvent.change(slider, { target: { value: "80" } });
 
-  expect(slider).toHaveValue("50");
+  expect(slider).toHaveValue("80");
+  expect(slider).toHaveAttribute("aria-valuetext", "172%");
   expect(requestedScales).toEqual([1.24]);
 
   await act(async () => {
@@ -1715,7 +1723,9 @@ test("confirms only the latest rapid scale selection after the single-flight req
   await waitFor(() => {
     expect(requestedScales).toEqual([1.24, 1.72]);
   });
-  expect(slider).toHaveValue("50");
+  expect(initialStateReads).toBe(1);
+  expect(slider).toHaveValue("80");
+  expect(slider).toHaveAttribute("aria-valuetext", "172%");
 
   await act(async () => {
     secondNativeScale.resolve();
@@ -1723,6 +1733,7 @@ test("confirms only the latest rapid scale selection after the single-flight req
   });
   expect(slider).toHaveValue("80");
   expect(slider).toHaveAttribute("aria-valuetext", "172%");
+  await waitFor(() => expect(initialStateReads).toBe(2));
 });
 
 test("acknowledges a real pending diagnostics tray sequence once after returning its nested route to root", async () => {

@@ -733,6 +733,30 @@ test("renders the confirmed 0-100 scale slider and previews the mapped percentag
   expect(screen.getByText("160%", { selector: "output" })).toBeInTheDocument();
 });
 
+test("keeps pointer scaling anchored to the track geometry captured before the window resizes", async () => {
+  const user = userEvent.setup();
+  renderSettings();
+
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+  const slider = screen.getByRole("slider", { name: "窗口缩放" });
+  let sliderBounds = new DOMRect(100, 0, 400, 22);
+  vi.spyOn(slider, "getBoundingClientRect").mockImplementation(() => sliderBounds);
+  Object.defineProperties(slider, {
+    setPointerCapture: { configurable: true, value: vi.fn() },
+    hasPointerCapture: { configurable: true, value: vi.fn().mockReturnValue(true) },
+    releasePointerCapture: { configurable: true, value: vi.fn() },
+  });
+
+  fireEvent.pointerDown(slider, { button: 0, pointerId: 11, clientX: 292, screenX: 1292 });
+  sliderBounds = new DOMRect(50, 0, 200, 22);
+  fireEvent.pointerMove(slider, { pointerId: 11, clientX: 350, screenX: 1396 });
+  fireEvent.pointerUp(slider, { pointerId: 11, clientX: 350, screenX: 1396 });
+  fireEvent.change(slider, { target: { value: "20" } });
+
+  expect(slider).toHaveValue("75");
+  expect(slider).toHaveAttribute("aria-valuetext", "160%");
+});
+
 test("opens the AIsland Agent settings surface with the new preset and Custom Hook choices", async () => {
   const user = userEvent.setup();
   renderSettings();

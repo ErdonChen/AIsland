@@ -94,6 +94,7 @@ button:not(:disabled):active > svg { transform: scale(0.88); }
     0 18px 48px rgba(0,0,0,0.24);
   font-family: "Segoe UI Variable", "Microsoft YaHei UI", sans-serif;
   transition:
+    transform 90ms linear,
     width 360ms var(--island-spring),
     height 360ms var(--island-spring),
     border-radius 360ms var(--island-spring),
@@ -138,7 +139,7 @@ button:not(:disabled):active > svg { transform: scale(0.88); }
 .agent-status-slots { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .agent-logo-strip { min-width: 0; display: flex; align-items: center; gap: 3px; }
 .agent-overflow-count { flex: 0 0 auto; color: var(--island-text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
-.agent-logo-button { position: relative; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; color: rgb(var(--island-text-rgb, 244 247 251) / .8); background: linear-gradient(180deg,rgb(255 255 255 / var(--glass-panel-alpha)),rgba(255,255,255,.015)); cursor: pointer; }
+.agent-logo-button { position: relative; isolation: isolate; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; color: rgb(var(--island-text-rgb, 244 247 251) / .8); background: linear-gradient(180deg,rgb(255 255 255 / var(--glass-panel-alpha)),rgba(255,255,255,.015)); cursor: pointer; }
 .agent-logo-button:hover { color: var(--island-text-primary, #f4f7fb); border-color: rgba(255,255,255,.72); background: rgba(255,255,255,.11); }
 @property --compact-attention-angle {
   syntax: "<angle>";
@@ -155,13 +156,14 @@ button:not(:disabled):active > svg { transform: scale(0.88); }
 }
 .agent-logo-button--attention::before {
   inset: 0;
-  border: 1px solid color-mix(in srgb, var(--agent-attention-color) 74%, transparent);
-  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--agent-attention-color) 72%, white);
+  border-radius: 9px;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--agent-attention-color) 20%, transparent),
-    inset 0 0 6px color-mix(in srgb, var(--agent-attention-color) 32%, transparent),
-    0 0 4px color-mix(in srgb, var(--agent-attention-color) 18%, transparent);
-  opacity: .36;
+    inset 0 0 0 1px color-mix(in srgb, var(--agent-attention-color) 58%, white),
+    inset 0 0 7px color-mix(in srgb, var(--agent-attention-color) 66%, transparent),
+    0 0 3px color-mix(in srgb, var(--agent-attention-color) 88%, transparent),
+    0 0 8px color-mix(in srgb, var(--agent-attention-color) 62%, transparent);
+  opacity: .72;
 }
 .agent-logo-button--attention-orbit::before {
   will-change: opacity;
@@ -169,28 +171,34 @@ button:not(:disabled):active > svg { transform: scale(0.88); }
 }
 .agent-logo-button--attention-orbit::after {
   inset: 0;
-  padding: 1.5px;
+  padding: 2px;
   border-radius: 9px;
   background: conic-gradient(
     from var(--compact-attention-angle),
-    transparent 0deg 206deg,
-    color-mix(in srgb, var(--agent-attention-color) 12%, transparent) 232deg,
-    color-mix(in srgb, var(--agent-attention-color) 56%, transparent) 270deg,
-    color-mix(in srgb, var(--agent-attention-color) 82%, transparent) 292deg,
-    color-mix(in srgb, var(--agent-attention-color) 20%, transparent) 320deg,
-    transparent 344deg 360deg
+    transparent 0deg 188deg,
+    color-mix(in srgb, var(--agent-attention-color) 34%, transparent) 220deg,
+    color-mix(in srgb, var(--agent-attention-color) 88%, transparent) 260deg,
+    color-mix(in srgb, var(--agent-attention-color) 48%, white) 286deg,
+    color-mix(in srgb, var(--agent-attention-color) 94%, transparent) 306deg,
+    color-mix(in srgb, var(--agent-attention-color) 44%, transparent) 332deg,
+    transparent 352deg 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--agent-attention-color) 42%, transparent));
-  opacity: .58;
+  filter:
+    brightness(1.45)
+    drop-shadow(0 0 2px color-mix(in srgb, var(--agent-attention-color) 94%, white))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--agent-attention-color) 78%, transparent))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--agent-attention-color) 48%, transparent));
+  mix-blend-mode: screen;
+  opacity: .96;
   will-change: opacity;
-  animation: compact-attention-orbit 3.6s linear infinite;
+  animation: compact-attention-orbit 3.2s linear infinite;
 }
 .agent-logo-button > .status-dot { position: absolute; z-index: 2; right: -1px; bottom: -1px; width: 6px; height: 6px; border: 1px solid rgba(20,20,25,.9); }
-@keyframes compact-attention-breathe { 0%, 100% { opacity: .22; } 50% { opacity: .5; } }
+@keyframes compact-attention-breathe { 0%, 100% { opacity: .54; } 50% { opacity: .92; } }
 @keyframes compact-attention-orbit { to { --compact-attention-angle: 1turn; } }
 .agent-gui-logo { width: 20px; height: 20px; display: grid; place-items: center; overflow: hidden; border-radius: 6px; }
 .agent-gui-logo__image { width: 100%; height: 100%; display: block; object-fit: contain; }
@@ -783,7 +791,7 @@ button.agent-profile-card:hover, .agent-profile-card:hover { border-color: rgba(
   button:not(:disabled):active,
   button:not(:disabled):active > svg { transform: none; filter: none; }
   .status-dot--pulse { animation: none; }
-  .agent-logo-button--attention::before { opacity: .3; }
+  .agent-logo-button--attention::before { opacity: .72; }
   .agent-logo-button--attention-orbit::after { opacity: 0; }
   .reminder-alert-card { animation: none; }
   .metric-trend polyline { animation: none; }

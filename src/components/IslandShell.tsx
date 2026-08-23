@@ -52,6 +52,7 @@ const COMPACT_ATTENTION_KEY = "aisland.display.compactAttention.v1";
 const NOTIFICATION_POPUP_KEY = "aisland.notifications.popup.v1";
 const DEFAULT_GLASS_TRANSPARENCY = 58;
 const EXPANSION_PREVIEW_PAUSE_MS = 120;
+const SCALE_RECONCILE_DELAY_MS = 140;
 const COMPACT_EXPAND_DELAY_MS = 600;
 const COMPACT_COLLAPSE_DELAY_MS = 280;
 const NOTIFICATION_VISIBLE_MS = 8_000;
@@ -387,6 +388,10 @@ export default function IslandShell() {
   const settingsInFlightRef = useRef(false);
   const nextSettingsRouteEntryRef = useRef(0);
   const untuckInFlightRef = useRef(false);
+  const scaleIntentRef = useRef(1);
+  const scaleReconcilePendingRef = useRef(false);
+  const scaleReconcileGenerationRef = useRef(0);
+  const scaleReconcileTimerRef = useRef<number | undefined>(undefined);
   const scaleCoordinatorRef = useRef<LatestWinsSingleFlight<number> | null>(null);
   const collapsedWidthCoordinatorRef = useRef<ConfirmedDesiredSingleFlight | null>(null);
   const expandedWidthCoordinatorRef = useRef<ConfirmedDesiredSingleFlight | null>(null);
@@ -491,19 +496,9 @@ export default function IslandShell() {
   if (scaleCoordinatorRef.current === null) {
     scaleCoordinatorRef.current = new LatestWinsSingleFlight(
       1,
-      async (value) => {
-        await invoke("set_island_scale", { scale: value });
-        const confirmed = await invoke<InitialState>("get_initial_state");
-        if (mountedRef.current) {
-          const nextCollapsedWidth = clampWindowWidth("collapsed", confirmed.collapsedWidth);
-          const nextExpandedWidth = clampWindowWidth("expanded", confirmed.expandedWidth);
-          collapsedWidthCoordinatorRef.current?.resetConfirmed(nextCollapsedWidth);
-          expandedWidthCoordinatorRef.current?.resetConfirmed(nextExpandedWidth);
-          setCollapsedWidth(nextCollapsedWidth);
-          setExpandedWidth(nextExpandedWidth);
-        }
-      },
+      async (value) => invoke("set_island_scale", { scale: value }),
       (value) => {
+        scaleIntentRef.current = value;
         if (!mountedRef.current) return;
         try {
           localStorage.setItem(SCALE_KEY, String(value));
@@ -513,6 +508,31 @@ export default function IslandShell() {
         setScale(value);
       },
       (error) => console.error("Failed to set island scale", error),
+      (confirmedScale) => {
+        if (!scaleReconcilePendingRef.current) return;
+        scaleReconcilePendingRef.current = false;
+        if (scaleReconcileTimerRef.current !== undefined) {
+          window.clearTimeout(scaleReconcileTimerRef.current);
+        }
+        const generation = scaleReconcileGenerationRef.current;
+        scaleReconcileTimerRef.current = window.setTimeout(() => {
+          scaleReconcileTimerRef.current = undefined;
+          void invoke<InitialState>("get_initial_state").then((confirmed) => {
+            if (
+              !mountedRef.current
+              || generation !== scaleReconcileGenerationRef.current
+              || Math.abs(scaleIntentRef.current - confirmedScale) > 0.0001
+              || Math.abs(confirmed.scale - confirmedScale) > 0.0001
+            ) return;
+            const nextCollapsedWidth = clampWindowWidth("collapsed", confirmed.collapsedWidth);
+            const nextExpandedWidth = clampWindowWidth("expanded", confirmed.expandedWidth);
+            collapsedWidthCoordinatorRef.current?.resetConfirmed(nextCollapsedWidth);
+            expandedWidthCoordinatorRef.current?.resetConfirmed(nextExpandedWidth);
+            setCollapsedWidth(nextCollapsedWidth);
+            setExpandedWidth(nextExpandedWidth);
+          }).catch((error) => console.error("Failed to reconcile island scale", error));
+        }, SCALE_RECONCILE_DELAY_MS);
+      },
     );
   }
 
@@ -826,6 +846,7 @@ export default function IslandShell() {
         modeRef.current = initial.mode;
         confirmedModeRef.current = initial.mode;
         modeCoordinatorRef.current?.resetConfirmed(initial.mode);
+        scaleIntentRef.current = initial.scale;
         setScale(initial.scale);
         const initialCollapsedWidth = clampWindowWidth("collapsed", initial.collapsedWidth);
         const initialExpandedWidth = clampWindowWidth("expanded", initial.expandedWidth);
@@ -840,7 +861,12 @@ export default function IslandShell() {
 
         const saved = Number(localStorage.getItem(SCALE_KEY) ?? initial.scale);
         const nextScale = clampWindowScale(saved);
-        if (active) scaleCoordinatorRef.current?.request(nextScale);
+        if (active) {
+          scaleIntentRef.current = nextScale;
+          setScale(nextScale);
+          scaleReconcilePendingRef.current = Math.abs(nextScale - initial.scale) > 0.0001;
+          scaleCoordinatorRef.current?.request(nextScale);
+        }
         const savedCollapsedWidth = clampWindowWidth(
           "collapsed",
           Number(localStorage.getItem(COLLAPSED_WIDTH_KEY) ?? initialCollapsedWidth),
@@ -1149,6 +1175,7 @@ export default function IslandShell() {
   useEffect(() => () => {
     clearHoverTimers();
     if (notificationTimerRef.current !== undefined) window.clearTimeout(notificationTimerRef.current);
+    if (scaleReconcileTimerRef.current !== undefined) window.clearTimeout(scaleReconcileTimerRef.current);
   }, [clearHoverTimers]);
 
   useEffect(() => {
@@ -1191,7 +1218,17 @@ export default function IslandShell() {
   }, [initialized, tucked]);
 
   const applyScale = useCallback((value: number) => {
-    scaleCoordinatorRef.current?.request(clampWindowScale(value));
+    const nextScale = clampWindowScale(value);
+    if (Math.abs(scaleIntentRef.current - nextScale) <= 0.0001) return;
+    scaleReconcileGenerationRef.current += 1;
+    if (scaleReconcileTimerRef.current !== undefined) {
+      window.clearTimeout(scaleReconcileTimerRef.current);
+      scaleReconcileTimerRef.current = undefined;
+    }
+    scaleIntentRef.current = nextScale;
+    scaleReconcilePendingRef.current = true;
+    setScale(nextScale);
+    scaleCoordinatorRef.current?.request(nextScale);
   }, []);
 
   const applyGlassTransparency = useCallback((value: number) => {
