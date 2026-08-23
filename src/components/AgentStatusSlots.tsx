@@ -71,12 +71,21 @@ type ProfileStatusSlot = {
 
 type StatusSlot = LegacyStatusSlot | ProfileStatusSlot;
 
+function newestOccurrenceForStatus<T extends { status: AgentStatus; occurredAt: number }>(
+  observations: readonly T[],
+  status: AgentStatus,
+) {
+  const matching = observations.filter((observation) => observation.status === status);
+  const relevant = matching.length > 0 ? matching : observations;
+  return Math.max(...relevant.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY);
+}
+
 export function sortAgentsByPriority(agents: AgentSummary[]): AgentSummary[] {
   return [...agents].sort((left, right) => {
     const status = STATUS_RANK[left.aggregateStatus] - STATUS_RANK[right.aggregateStatus];
     if (status !== 0) return status;
-    const newestLeft = Math.max(...left.environments.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY);
-    const newestRight = Math.max(...right.environments.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY);
+    const newestLeft = newestOccurrenceForStatus(left.environments, left.aggregateStatus);
+    const newestRight = newestOccurrenceForStatus(right.environments, right.aggregateStatus);
     if (newestLeft !== newestRight) return newestRight - newestLeft;
     return AGENT_RANK[left.agentId] - AGENT_RANK[right.agentId];
   });
@@ -92,7 +101,7 @@ export function visibleProfileStatusSlots(profiles: AgentProfileStatusSummary[])
     .map((profile) => ({
       kind: "profile" as const,
       status: profile.aggregateStatus,
-      occurredAt: Math.max(...profile.observations.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY),
+      occurredAt: newestOccurrenceForStatus(profile.observations, profile.aggregateStatus),
       logo: profile.profile.configTarget.kind === "preset" ? profile.profile.configTarget.adapterId : "custom",
       profile,
     }));
@@ -116,7 +125,7 @@ function collectStatusSlots(agents: AgentSummary[], profileSummaries: AgentProfi
       kind: "legacy" as const,
       agent,
       status: agent.aggregateStatus,
-      occurredAt: Math.max(...agent.environments.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY),
+      occurredAt: newestOccurrenceForStatus(agent.environments, agent.aggregateStatus),
     })),
     ...visibleProfileStatusSlots(profileSummaries),
   ]);

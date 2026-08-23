@@ -23,6 +23,10 @@ vi.mock("./i18n/I18nProvider", () => ({
 afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
+  localStorage.clear();
+  document.documentElement.style.removeProperty("--island-text-rgb");
+  document.documentElement.style.removeProperty("--island-text-readable-alpha");
+  delete document.documentElement.dataset.textColor;
   delete (window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   getCurrentWindowMock.mockReset();
   vi.resetModules();
@@ -54,6 +58,7 @@ test("Tauri main window boots the island", async () => {
 
 test("Tauri reminder window boots only the reminder surface", async () => {
   document.body.innerHTML = '<div id="root"></div>';
+  localStorage.setItem("aisland.display.textColor.v1", "purple");
   (window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
   getCurrentWindowMock.mockReturnValue({ label: "reminder-alert" });
 
@@ -61,6 +66,16 @@ test("Tauri reminder window boots only the reminder surface", async () => {
 
   expect(await screen.findByText("reminder alert window")).toBeInTheDocument();
   expect(screen.queryByText("interactive island prototype")).not.toBeInTheDocument();
+  expect(document.documentElement).toHaveAttribute("data-text-color", "purple");
+  expect(document.documentElement.style.getPropertyValue("--island-text-rgb")).toBe("196 181 253");
+
+  localStorage.setItem("aisland.display.textColor.v1", "pink");
+  window.dispatchEvent(new StorageEvent("storage", {
+    key: "aisland.display.textColor.v1",
+    newValue: "pink",
+  }));
+  expect(document.documentElement).toHaveAttribute("data-text-color", "pink");
+  expect(document.documentElement.style.getPropertyValue("--island-text-rgb")).toBe("255 156 203");
 });
 
 test("Tauri metadata failure does not fall back to the main island", async () => {

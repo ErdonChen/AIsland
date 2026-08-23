@@ -21,6 +21,7 @@ import StatusDot from "./StatusDot";
 import {
   STATUS_COLOR_PREFERENCES_KEY,
   TEXT_COLOR_PREFERENCE_KEY,
+  applyTextColorToDocument,
   appearanceColorOption,
   loadStatusColorPreferences,
   loadTextColorPreference,
@@ -215,7 +216,7 @@ export class LatestWinsImmediate<T> {
 
   constructor(
     private confirmed: T,
-    private readonly perform: (value: T) => Promise<void>,
+    private readonly perform: (value: T) => Promise<T>,
     private readonly onCommitted: (value: T) => void,
     private readonly onFailed: (error: unknown) => void,
     private readonly onIdle?: (confirmed: T) => void,
@@ -256,10 +257,10 @@ export class LatestWinsImmediate<T> {
 
   private async performLatest(requestGeneration: number, target: T) {
     try {
-      await this.perform(target);
+      const committed = await this.perform(target);
       if (requestGeneration !== this.generation) return;
-      this.confirmed = target;
-      this.onCommitted(target);
+      this.confirmed = committed;
+      this.onCommitted(committed);
     } catch (error) {
       if (requestGeneration !== this.generation) return;
       this.onFailed(error);
@@ -413,6 +414,10 @@ export default function IslandShell() {
     () => resolveAgentStatusColors(statusColorPreferences),
     [statusColorPreferences],
   );
+  const textColorOption = appearanceColorOption(textColor);
+  useEffect(() => {
+    applyTextColorToDocument(textColor);
+  }, [textColor]);
   const acknowledgeCurrentCompactAttention = useCallback(() => {
     const candidates = compactAttentionCandidatesRef.current;
     if (candidates.size === 0) return;
@@ -465,6 +470,7 @@ export default function IslandShell() {
           setCollapsedWidth(nextCollapsedWidth);
           setExpandedWidth(nextExpandedWidth);
         }
+        return confirmed.mode;
       },
       (value) => {
         modeRef.current = value;
@@ -1222,6 +1228,7 @@ export default function IslandShell() {
   }, []);
 
   const applyTextColor = useCallback((color: AppearanceColor) => {
+    applyTextColorToDocument(color);
     setTextColor(color);
     try {
       localStorage.setItem(TEXT_COLOR_PREFERENCE_KEY, color);
@@ -1537,7 +1544,9 @@ export default function IslandShell() {
     "--glass-shell-rgb": islandBackgroundRgb(backgroundColor),
     "--glass-panel-alpha": String(Number((0.1 * glassMaterialRatio).toFixed(3))),
     "--glass-popover-alpha": String(Number((0.96 * glassMaterialRatio).toFixed(3))),
-    "--island-text-rgb": appearanceColorOption(textColor).textRgb,
+    "--island-text-rgb": textColorOption.textRgb,
+    "--island-text-readable-alpha": String(textColorOption.readableAlpha),
+    "--island-text-secondary-alpha": String(Math.max(0.72, textColorOption.readableAlpha)),
     "--glass-blur": `${Math.round(glassRatio * 24)}px`,
     "--glass-saturation": `${Math.round(100 + glassRatio * 45)}%`,
   } as CSSProperties;

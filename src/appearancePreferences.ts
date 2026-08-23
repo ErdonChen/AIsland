@@ -10,19 +10,20 @@ export type AppearanceColorOption = {
   signalHex: string;
   textHex: string;
   textRgb: string;
+  readableAlpha: number;
 };
 
 export const STATUS_COLOR_PREFERENCES_KEY = "aisland.display.statusColors.v1";
 export const TEXT_COLOR_PREFERENCE_KEY = "aisland.display.textColor.v1";
 
 export const APPEARANCE_COLOR_OPTIONS: readonly AppearanceColorOption[] = [
-  { value: "red", signalHex: "#E24B4A", textHex: "#FF8A85", textRgb: "255 138 133" },
-  { value: "yellow", signalHex: "#EF9F27", textHex: "#FFD166", textRgb: "255 209 102" },
-  { value: "blue", signalHex: "#72BCFF", textHex: "#8AC8FF", textRgb: "138 200 255" },
-  { value: "green", signalHex: "#639922", textHex: "#8ED06C", textRgb: "142 208 108" },
-  { value: "white", signalHex: "#F4F7FB", textHex: "#F4F7FB", textRgb: "244 247 251" },
-  { value: "purple", signalHex: "#A78BFA", textHex: "#C4B5FD", textRgb: "196 181 253" },
-  { value: "pink", signalHex: "#F472B6", textHex: "#FF9CCB", textRgb: "255 156 203" },
+  { value: "red", signalHex: "#E24B4A", textHex: "#FF8A85", textRgb: "255 138 133", readableAlpha: 0.97 },
+  { value: "yellow", signalHex: "#EF9F27", textHex: "#FFD166", textRgb: "255 209 102", readableAlpha: 0.7 },
+  { value: "blue", signalHex: "#72BCFF", textHex: "#8AC8FF", textRgb: "138 200 255", readableAlpha: 0.81 },
+  { value: "green", signalHex: "#639922", textHex: "#8ED06C", textRgb: "142 208 108", readableAlpha: 0.83 },
+  { value: "white", signalHex: "#F4F7FB", textHex: "#F4F7FB", textRgb: "244 247 251", readableAlpha: 0.58 },
+  { value: "purple", signalHex: "#A78BFA", textHex: "#C4B5FD", textRgb: "196 181 253", readableAlpha: 0.83 },
+  { value: "pink", signalHex: "#F472B6", textHex: "#FF9CCB", textRgb: "255 156 203", readableAlpha: 0.86 },
 ] as const;
 
 export const DEFAULT_STATUS_COLOR_PREFERENCES: StatusColorPreferences = {
@@ -42,6 +43,14 @@ export function isAppearanceColor(value: unknown): value is AppearanceColor {
 
 export function appearanceColorOption(color: AppearanceColor): AppearanceColorOption {
   return COLOR_BY_NAME.get(color) ?? COLOR_BY_NAME.get(DEFAULT_TEXT_COLOR)!;
+}
+
+export function applyTextColorToDocument(color: AppearanceColor, root: HTMLElement = document.documentElement) {
+  const option = appearanceColorOption(color);
+  root.style.setProperty("--island-text-rgb", option.textRgb);
+  root.style.setProperty("--island-text-readable-alpha", String(option.readableAlpha));
+  root.style.setProperty("--island-text-secondary-alpha", String(Math.max(0.72, option.readableAlpha)));
+  root.dataset.textColor = color;
 }
 
 export function resolveAgentStatusColors(preferences: StatusColorPreferences): AgentStatusColorMap {

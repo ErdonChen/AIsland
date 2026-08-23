@@ -109,8 +109,7 @@ test("opens an installed Kimi Profile, then lets tray Settings clear focus and a
     if (event === "tray-navigate") trayNavigateListener = handler;
     return vi.fn();
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(pendingNavigation);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     if (command === "listAgentIntegrationProfiles") return Promise.resolve([kimiProfile]);
@@ -119,7 +118,7 @@ test("opens an installed Kimi Profile, then lets tray Settings clear focus and a
       return nativeAcknowledge.promise;
     }
     return Promise.resolve(undefined);
-  });
+  }));
   renderShell();
 
   await waitFor(() => expect(beginAgentProfileStateSubscriptionMock).toHaveBeenCalledTimes(1));
@@ -409,6 +408,23 @@ const INITIAL_STATE = {
   rasterizationError: null,
 };
 
+type NativeMode = "collapsed" | "expanded";
+
+function createModeAwareInvoke(
+  initialMode: NativeMode,
+  fallback?: (command: string, args?: unknown) => unknown,
+) {
+  let nativeMode = initialMode;
+  return (command: string, args?: unknown) => {
+    if (command === "set_island_mode") {
+      nativeMode = (args as { mode: NativeMode }).mode;
+      return Promise.resolve(undefined);
+    }
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: nativeMode });
+    return fallback?.(command, args) ?? Promise.resolve(undefined);
+  };
+}
+
 function installPointerCapture(element: HTMLElement) {
   Object.defineProperties(element, {
     setPointerCapture: { configurable: true, value: vi.fn() },
@@ -547,14 +563,19 @@ test("hides the expanded island to the Windows tray without closing the applicat
 
 test("does not minimize while a native mode transition can still reshow the window", async () => {
   const nativeExpand = deferred<void>();
-  invokeMock.mockImplementation((command: string) => {
+  let nativeMode: NativeMode = "collapsed";
+  invokeMock.mockImplementation((command: string, args?: unknown) => {
     if (command === "get_initial_state") {
-      return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+      return Promise.resolve({ ...INITIAL_STATE, mode: nativeMode });
     }
     if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") {
       return Promise.resolve(null);
     }
-    if (command === "set_island_mode") return nativeExpand.promise;
+    if (command === "set_island_mode") {
+      return nativeExpand.promise.then(() => {
+        nativeMode = (args as { mode: NativeMode }).mode;
+      });
+    }
     return Promise.resolve(undefined);
   });
   const user = userEvent.setup();
@@ -592,18 +613,20 @@ beforeEach(() => {
       dispose: vi.fn(),
     };
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve(INITIAL_STATE);
+  invokeMock.mockImplementation(createModeAwareInvoke("expanded", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
   listenMock.mockResolvedValue(vi.fn());
 });
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  document.documentElement.style.removeProperty("--island-text-rgb");
+  document.documentElement.style.removeProperty("--island-text-readable-alpha");
+  delete document.documentElement.dataset.textColor;
   invokeMock.mockReset();
   listenMock.mockReset();
   beginAgentProfileStateSubscriptionMock.mockReset();
@@ -614,12 +637,11 @@ afterEach(() => {
 });
 
 test("hover expands the compact island while double-click pins it until the app loses focus", async () => {
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
   const { container } = renderShell();
   const canvas = container.querySelector<HTMLElement>(".island-canvas");
   const viewport = container.querySelector<HTMLElement>(".island-viewport");
@@ -761,12 +783,11 @@ test("recovers the authoritative native mode when a newer animation fails after 
 });
 
 test("a fresh Agent notification expands the compact island only when notification pop-ups are enabled", async () => {
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
   const { container } = renderShell();
   await waitFor(() => expect(renderReminderDeliveries).toBeTypeOf("function"));
   const now = Date.now();
@@ -821,12 +842,11 @@ test("keeps non-Agent reminder deliveries out of the island Agent notification s
 
 test("keeps the compact island collapsed when notification pop-ups are disabled", async () => {
   localStorage.setItem("aisland.notifications.popup.v1", "false");
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
   const { container } = renderShell();
   await waitFor(() => expect(renderReminderDeliveries).toBeTypeOf("function"));
   const now = Date.now();
@@ -850,8 +870,7 @@ test("loads authoritative Windows notification content and expands only after th
     if (eventName === "notificationHistoryChanged") notificationHistoryChanged = handler;
     return Promise.resolve(vi.fn());
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     if (command === "listNotificationHistory") return Promise.resolve([{
@@ -869,7 +888,7 @@ test("loads authoritative Windows notification content and expands only after th
       readAt: null,
     }]);
     return Promise.resolve(undefined);
-  });
+  }));
 
   const { container } = renderShell();
   await waitFor(() => expect(notificationHistoryChanged).toBeTypeOf("function"));
@@ -899,15 +918,14 @@ test("coalesces burst Windows notification invalidations and displays only the l
     if (eventName === "notificationHistoryChanged") notificationHistoryChanged = handler;
     return Promise.resolve(vi.fn());
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
     if (command === "listNotificationHistory") {
       historyQueries += 1;
       return historyQueries === 1 ? first.promise : second.promise;
     }
     return Promise.resolve(undefined);
-  });
+  }));
   renderShell();
   await waitFor(() => expect(notificationHistoryChanged).toBeTypeOf("function"));
 
@@ -978,12 +996,11 @@ test("does not query or expand for Windows notification invalidations when notif
     if (eventName === "notificationHistoryChanged") notificationHistoryChanged = handler;
     return Promise.resolve(vi.fn());
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
 
   const { container } = renderShell();
   await waitFor(() => expect(notificationHistoryChanged).toBeTypeOf("function"));
@@ -1028,12 +1045,11 @@ test("opens any compact Agent logo into expanded Home with its selected task con
     }),
     dispose: vi.fn(),
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation") return Promise.resolve(null);
     if (command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
   const user = userEvent.setup();
   renderShell();
 
@@ -1054,7 +1070,7 @@ test("re-entering Settings through its selected tab resets a nested settings rou
   expect(screen.getByRole("heading", { name: "通用" })).toBeInTheDocument();
 
   await user.click(screen.getByRole("tab", { name: "设置" }));
-  expect(screen.getByRole("button", { name: "通用" })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("button", { name: "通用" })).toBeInTheDocument());
 });
 
 test("keeps Todo retired while Daily Notes remains mounted without touching geometry", async () => {
@@ -1134,13 +1150,12 @@ test("keeps a pending daily-note draft alive while another shell tab is active",
 test("keeps a failed daily-note draft across tab changes and shell collapse", async () => {
   // A failed draft is session state and must remain retryable even while the note surface is hidden.
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve(INITIAL_STATE);
+  invokeMock.mockImplementation(createModeAwareInvoke("expanded", (command: string) => {
     if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
     if (command === "getDailyNote") return Promise.resolve(null);
     if (command === "createNote") return Promise.reject({ code: "databaseFailure", messageKey: "errors.databaseFailure", details: { reasonCode: "failed" }, retryable: true });
     return Promise.resolve(undefined);
-  });
+  }));
   renderShell();
   await waitFor(() => expect(screen.getByRole("tab", { name: "每日笔记" })).toBeEnabled());
 
@@ -1315,6 +1330,7 @@ test("customizes status lights and ordinary text from named palettes, then resto
   const canvas = first.container.querySelector<HTMLElement>(".island-canvas");
   expect(canvas).toHaveAttribute("data-text-color", "white");
   expect(canvas?.style.getPropertyValue("--island-text-rgb")).toBe("244 247 251");
+  await waitFor(() => expect(document.documentElement.style.getPropertyValue("--island-text-rgb")).toBe("244 247 251"));
   expect(first.container.querySelector(".island-mini-status .status-dot")).toHaveStyle({ background: "#EF9F27" });
 
   await user.click(screen.getByRole("tab", { name: "设置" }));
@@ -1323,14 +1339,37 @@ test("customizes status lights and ordinary text from named palettes, then resto
   const runningPalette = screen.getByRole("group", { name: "工作中状态灯颜色" });
   expect(within(runningPalette).getByRole("button", { name: "黄色" })).toHaveAttribute("aria-pressed", "true");
   await user.click(within(runningPalette).getByRole("button", { name: "红色" }));
+  const idlePalette = screen.getByRole("group", { name: "空闲状态灯颜色" });
+  const completedPalette = screen.getByRole("group", { name: "已完成状态灯颜色" });
+  const attentionPalette = screen.getByRole("group", { name: "需要干预状态灯颜色" });
+  await user.click(within(idlePalette).getByRole("button", { name: "红色" }));
+  await user.click(within(completedPalette).getByRole("button", { name: "紫色" }));
+  await user.click(within(attentionPalette).getByRole("button", { name: "粉红" }));
+  expect(within(runningPalette).getByRole("button", { name: "红色" })).toHaveAttribute("aria-pressed", "true");
+  expect(within(idlePalette).getByRole("button", { name: "红色" })).toHaveAttribute("aria-pressed", "true");
+  expect(within(completedPalette).getByRole("button", { name: "紫色" })).toHaveAttribute("aria-pressed", "true");
+  expect(within(attentionPalette).getByRole("button", { name: "粉红" })).toHaveAttribute("aria-pressed", "true");
+  expect(JSON.parse(localStorage.getItem("aisland.display.statusColors.v1") ?? "{}")).toEqual({
+    running: "red",
+    idle: "red",
+    completed: "purple",
+    attention: "pink",
+  });
 
   const textPalette = screen.getByRole("group", { name: "软件字体颜色" });
   expect(within(textPalette).getByRole("button", { name: "白色" })).toHaveAttribute("aria-pressed", "true");
-  await user.click(within(textPalette).getByRole("button", { name: "紫色" }));
+  for (const color of ["红色", "黄色", "蓝色", "绿色", "白色", "粉红", "紫色"]) {
+    const option = within(textPalette).getByRole("button", { name: color });
+    await user.click(option);
+    expect(option).toHaveAttribute("aria-pressed", "true");
+  }
 
   expect(first.container.querySelector(".island-mini-status .status-dot")).toHaveStyle({ background: "#E24B4A" });
   expect(canvas).toHaveAttribute("data-text-color", "purple");
   expect(canvas?.style.getPropertyValue("--island-text-rgb")).toBe("196 181 253");
+  expect(document.documentElement).toHaveAttribute("data-text-color", "purple");
+  expect(document.documentElement.style.getPropertyValue("--island-text-rgb")).toBe("196 181 253");
+  expect(document.documentElement.style.getPropertyValue("--island-text-readable-alpha")).toBe("0.83");
 
   first.unmount();
   const restored = renderShell();
@@ -1385,8 +1424,13 @@ test("prioritizes new compact completion and intervention signals until a confir
       dispose: vi.fn(),
     };
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  let nativeMode: "collapsed" | "expanded" = "collapsed";
+  invokeMock.mockImplementation((command: string, args?: unknown) => {
+    if (command === "set_island_mode") {
+      nativeMode = (args as { mode: "collapsed" | "expanded" }).mode;
+      return Promise.resolve(undefined);
+    }
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: nativeMode });
     if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
   });
@@ -1417,6 +1461,39 @@ test("prioritizes new compact completion and intervention signals until a confir
   expect([...container.querySelectorAll<HTMLElement>(".agent-logo-button--attention")].map((button) => button.dataset.agentId)).toEqual(["hermes"]);
 });
 
+test("keeps compact attention unacknowledged when the native window does not actually expand", async () => {
+  beginAgentStateSubscriptionMock.mockReturnValue({
+    ready: Promise.resolve({
+      initial: {
+        generatedAt: 1,
+        agents: [{
+          agentId: "hermes",
+          displayName: "Hermes",
+          aggregateStatus: "completed",
+          integrations: [],
+          environments: [{ agentId: "hermes", environment: "windows", taskId: "done", status: "completed", summary: "Done", sourceEventId: "done-1", occurredAt: 1, receivedAt: 1 }],
+        }],
+      },
+      dispose: vi.fn(),
+    }),
+    dispose: vi.fn(),
+  });
+  invokeMock.mockImplementation((command: string) => {
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  });
+  const user = userEvent.setup();
+  const { container } = renderShell();
+
+  await waitFor(() => expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(1));
+  await user.click(screen.getByRole("button", { name: "展开" }));
+
+  await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("set_island_mode", expect.objectContaining({ mode: "expanded" })));
+  await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
+  expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(1);
+});
+
 test("persists the compact attention switch while leaving priority sorting intact when motion is off", async () => {
   localStorage.setItem("aisland.display.compactAttention.v1", "false");
   beginAgentStateSubscriptionMock.mockReturnValue({
@@ -1432,11 +1509,10 @@ test("persists the compact attention switch while leaving priority sorting intac
     }),
     dispose: vi.fn(),
   });
-  invokeMock.mockImplementation((command: string) => {
-    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
     if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
-  });
+  }));
   const user = userEvent.setup();
   const { container } = renderShell();
 
