@@ -56,6 +56,13 @@ vi.mock("../../settings/MonitorSettings", () => ({
 }));
 
 import { I18nProvider, useI18n } from "../../i18n/I18nProvider";
+import {
+  DEFAULT_STATUS_COLOR_PREFERENCES,
+  resolveAgentStatusColors,
+  type AppearanceColor,
+  type StatusColorPreferences,
+  type StatusColorRole,
+} from "../../appearancePreferences";
 import SettingRow from "./SettingRow";
 import SettingsView from "./SettingsView";
 
@@ -75,8 +82,11 @@ function SettingsHarness({
   const [scale, setScale] = useState(1);
   const [glassTransparency, setGlassTransparency] = useState(58);
   const [backgroundColor, setBackgroundColor] = useState<"midnight" | "ocean" | "graphite" | "pine" | "nebula" | "rock">("midnight");
+  const [statusColorPreferences, setStatusColorPreferences] = useState<StatusColorPreferences>({ ...DEFAULT_STATUS_COLOR_PREFERENCES });
+  const [textColor, setTextColor] = useState<AppearanceColor>("white");
   const [expansionMotion, setExpansionMotion] = useState<"elastic" | "smooth" | "swift">("elastic");
   const [compactWindowEnabled, setCompactWindowEnabled] = useState(true);
+  const [compactAttentionEnabled, setCompactAttentionEnabled] = useState(true);
   const [notificationPopupEnabled, setNotificationPopupEnabled] = useState(true);
 
   return (
@@ -87,11 +97,18 @@ function SettingsHarness({
       onGlassTransparencyChange={setGlassTransparency}
       backgroundColor={backgroundColor}
       onBackgroundColorChange={setBackgroundColor}
+      statusColorPreferences={statusColorPreferences}
+      onStatusColorChange={(role: StatusColorRole, color: AppearanceColor) => setStatusColorPreferences((current) => ({ ...current, [role]: color }))}
+      textColor={textColor}
+      onTextColorChange={setTextColor}
+      statusColors={resolveAgentStatusColors(statusColorPreferences)}
       expansionMotion={expansionMotion}
       onExpansionMotionChange={setExpansionMotion}
       onPreviewExpansionMotion={() => Promise.resolve()}
       compactWindowEnabled={compactWindowEnabled}
       onCompactWindowEnabledChange={setCompactWindowEnabled}
+      compactAttentionEnabled={compactAttentionEnabled}
+      onCompactAttentionEnabledChange={setCompactAttentionEnabled}
       notificationPopupEnabled={notificationPopupEnabled}
       onNotificationPopupEnabledChange={setNotificationPopupEnabled}
       onExitSettings={onExitSettings}

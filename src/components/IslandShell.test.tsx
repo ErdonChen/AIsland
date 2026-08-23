@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -1280,6 +1280,179 @@ test("restores and persists an accessible shell background palette independently
   expect(canvas?.style.getPropertyValue("--glass-shell-alpha")).toBe("0");
   expect(canvas?.style.getPropertyValue("--glass-shell-rgb")).toBe("40 29 53");
   expect(localStorage.getItem("aisland.display.backgroundColor.v1")).toBe("nebula");
+});
+
+test("customizes status lights and ordinary text from named palettes, then restores both preferences", async () => {
+  beginAgentStateSubscriptionMock.mockReturnValue({
+    ready: Promise.resolve({
+      initial: {
+        generatedAt: 1,
+        agents: [{
+          agentId: "codex",
+          displayName: "Codex",
+          aggregateStatus: "running",
+          integrations: [],
+          environments: [{
+            agentId: "codex",
+            environment: "windows",
+            taskId: "appearance",
+            status: "running",
+            summary: "Appearance",
+            sourceEventId: "appearance-1",
+            occurredAt: 1,
+            receivedAt: 1,
+          }],
+        }],
+      },
+      dispose: vi.fn(),
+    }),
+    dispose: vi.fn(),
+  });
+  const user = userEvent.setup();
+  const first = renderShell();
+
+  await waitFor(() => expect(screen.getByRole("tab", { name: "设置" })).toBeEnabled());
+  const canvas = first.container.querySelector<HTMLElement>(".island-canvas");
+  expect(canvas).toHaveAttribute("data-text-color", "white");
+  expect(canvas?.style.getPropertyValue("--island-text-rgb")).toBe("244 247 251");
+  expect(first.container.querySelector(".island-mini-status .status-dot")).toHaveStyle({ background: "#EF9F27" });
+
+  await user.click(screen.getByRole("tab", { name: "设置" }));
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+
+  const runningPalette = screen.getByRole("group", { name: "工作中状态灯颜色" });
+  expect(within(runningPalette).getByRole("button", { name: "黄色" })).toHaveAttribute("aria-pressed", "true");
+  await user.click(within(runningPalette).getByRole("button", { name: "红色" }));
+
+  const textPalette = screen.getByRole("group", { name: "软件字体颜色" });
+  expect(within(textPalette).getByRole("button", { name: "白色" })).toHaveAttribute("aria-pressed", "true");
+  await user.click(within(textPalette).getByRole("button", { name: "紫色" }));
+
+  expect(first.container.querySelector(".island-mini-status .status-dot")).toHaveStyle({ background: "#E24B4A" });
+  expect(canvas).toHaveAttribute("data-text-color", "purple");
+  expect(canvas?.style.getPropertyValue("--island-text-rgb")).toBe("196 181 253");
+
+  first.unmount();
+  const restored = renderShell();
+  await waitFor(() => expect(screen.getByRole("tab", { name: "设置" })).toBeEnabled());
+  expect(restored.container.querySelector(".island-mini-status .status-dot")).toHaveStyle({ background: "#E24B4A" });
+  expect(restored.container.querySelector(".island-canvas")).toHaveAttribute("data-text-color", "purple");
+  await user.click(screen.getByRole("tab", { name: "设置" }));
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+  expect(within(screen.getByRole("group", { name: "工作中状态灯颜色" })).getByRole("button", { name: "红色" })).toHaveAttribute("aria-pressed", "true");
+  expect(within(screen.getByRole("group", { name: "软件字体颜色" })).getByRole("button", { name: "紫色" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("prioritizes new compact completion and intervention signals until a confirmed expansion acknowledges them", async () => {
+  let publishSnapshot: ((snapshot: import("../api/contracts").AgentsSnapshot) => void) | undefined;
+  const snapshot = (completedAt: number): import("../api/contracts").AgentsSnapshot => ({
+    generatedAt: completedAt,
+    agents: [
+      {
+        agentId: "codex" as const,
+        displayName: "Codex",
+        aggregateStatus: "running" as const,
+        integrations: [],
+        environments: [{ agentId: "codex" as const, environment: "windows" as const, taskId: "run", status: "running" as const, summary: "Running", sourceEventId: "run-30", occurredAt: 30, receivedAt: 30 }],
+      },
+      {
+        agentId: "hermes" as const,
+        displayName: "Hermes",
+        aggregateStatus: "completed" as const,
+        integrations: [],
+        environments: [{ agentId: "hermes" as const, environment: "windows" as const, taskId: "done", status: "completed" as const, summary: "Done", sourceEventId: `done-${completedAt}`, occurredAt: completedAt, receivedAt: completedAt }],
+      },
+      {
+        agentId: "workbuddy" as const,
+        displayName: "WorkBuddy",
+        aggregateStatus: "failed" as const,
+        integrations: [],
+        environments: [{ agentId: "workbuddy" as const, environment: "windows" as const, taskId: "blocked", status: "failed" as const, summary: "Blocked", sourceEventId: "failed-10", occurredAt: 10, receivedAt: 10 }],
+      },
+      {
+        agentId: "claude" as const,
+        displayName: "claude",
+        aggregateStatus: "idle" as const,
+        integrations: [],
+        environments: [{ agentId: "claude" as const, environment: "windows" as const, taskId: "idle", status: "idle" as const, summary: "Idle", sourceEventId: "idle-40", occurredAt: 40, receivedAt: 40 }],
+      },
+    ],
+  });
+  beginAgentStateSubscriptionMock.mockImplementation((_: unknown, onSnapshot: typeof publishSnapshot) => {
+    publishSnapshot = onSnapshot;
+    return {
+      ready: Promise.resolve({ initial: snapshot(20), dispose: vi.fn() }),
+      dispose: vi.fn(),
+    };
+  });
+  invokeMock.mockImplementation((command: string) => {
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  });
+  const user = userEvent.setup();
+  const { container } = renderShell();
+
+  await waitFor(() => expect(container.querySelectorAll(".agent-logo-button")).toHaveLength(4));
+  expect([...container.querySelectorAll<HTMLElement>(".agent-logo-button")].map((button) => button.dataset.agentId)).toEqual([
+    "hermes",
+    "workbuddy",
+    "codex",
+    "claude",
+  ]);
+  expect([...container.querySelectorAll<HTMLElement>(".agent-logo-button--attention")].map((button) => button.dataset.agentId)).toEqual([
+    "hermes",
+    "workbuddy",
+  ]);
+
+  await user.click(screen.getByRole("button", { name: "展开" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "折叠" })).toBeEnabled());
+  await user.click(screen.getByRole("button", { name: "折叠" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
+  expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(0);
+
+  await act(async () => {
+    publishSnapshot?.(snapshot(50));
+  });
+  expect([...container.querySelectorAll<HTMLElement>(".agent-logo-button--attention")].map((button) => button.dataset.agentId)).toEqual(["hermes"]);
+});
+
+test("persists the compact attention switch while leaving priority sorting intact when motion is off", async () => {
+  localStorage.setItem("aisland.display.compactAttention.v1", "false");
+  beginAgentStateSubscriptionMock.mockReturnValue({
+    ready: Promise.resolve({
+      initial: {
+        generatedAt: 2,
+        agents: [
+          { agentId: "codex", displayName: "Codex", aggregateStatus: "running", integrations: [], environments: [{ agentId: "codex", environment: "windows", taskId: "run", status: "running", summary: "", sourceEventId: "run", occurredAt: 9, receivedAt: 9 }] },
+          { agentId: "hermes", displayName: "Hermes", aggregateStatus: "completed", integrations: [], environments: [{ agentId: "hermes", environment: "windows", taskId: "done", status: "completed", summary: "", sourceEventId: "done", occurredAt: 2, receivedAt: 2 }] },
+        ],
+      },
+      dispose: vi.fn(),
+    }),
+    dispose: vi.fn(),
+  });
+  invokeMock.mockImplementation((command: string) => {
+    if (command === "get_initial_state") return Promise.resolve({ ...INITIAL_STATE, mode: "collapsed" as const });
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  });
+  const user = userEvent.setup();
+  const { container } = renderShell();
+
+  await waitFor(() => expect(container.querySelectorAll(".agent-logo-button")).toHaveLength(2));
+  expect(container.querySelector<HTMLElement>(".agent-logo-button")?.dataset.agentId).toBe("hermes");
+  expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(0);
+
+  await user.click(screen.getByRole("button", { name: "展开" }));
+  await waitFor(() => expect(screen.getByRole("tab", { name: "设置" })).toBeEnabled());
+  await user.click(screen.getByRole("tab", { name: "设置" }));
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+  const attentionSwitch = screen.getByRole("switch", { name: "紧凑状态提示" });
+  expect(attentionSwitch).toHaveAttribute("aria-checked", "false");
+  await user.click(attentionSwitch);
+  expect(attentionSwitch).toHaveAttribute("aria-checked", "true");
+  expect(localStorage.getItem("aisland.display.compactAttention.v1")).toBe("true");
 });
 
 test("restores and persists the selected production expansion motion", async () => {

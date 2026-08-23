@@ -8,7 +8,7 @@ import { acknowledgeReminderNavigation, getPendingReminderNavigation, listNotifi
 import { useI18n } from "../i18n/I18nProvider";
 import { translateRegisteredMessage, type TranslationKey } from "../i18n/catalog";
 import type { AgentEnvironment, AgentId, AgentProfilesSnapshot, AgentsSnapshot, AgentTriggerStatus, NotificationHistoryChangedPayload, NotificationHistoryItem, PendingReminderNavigation, ReminderDelivery } from "../api/contracts";
-import AgentStatusSlots, { prioritizedAgentStatuses, sortAgentsByPriority, visibleAgentSummaries } from "./AgentStatusSlots";
+import AgentStatusSlots, { compactAttentionSignalKeys, prioritizedAgentStatuses, sortAgentsByPriority, visibleAgentSummaries } from "./AgentStatusSlots";
 import AgentsPage from "../pages/AgentsPage";
 import type { CommittedAgentContext } from "../pages/AgentsPage";
 import SettingsView from "./settings/SettingsView";
@@ -18,7 +18,16 @@ import MonitorPage from "../pages/MonitorPage";
 import NotificationCenterPage from "../pages/NotificationCenterPage";
 import TabBar from "./TabBar";
 import StatusDot from "./StatusDot";
-import { AGENT_STATUS_COLOR } from "./agentStatusPresentation";
+import {
+  STATUS_COLOR_PREFERENCES_KEY,
+  TEXT_COLOR_PREFERENCE_KEY,
+  appearanceColorOption,
+  loadStatusColorPreferences,
+  loadTextColorPreference,
+  resolveAgentStatusColors,
+  type AppearanceColor,
+  type StatusColorRole,
+} from "../appearancePreferences";
 import type { InitialState, IslandExpansionMotion, IslandMode, IslandPage } from "../types";
 import type { IslandBackgroundColor } from "../types";
 import { isIslandBackgroundColor, islandBackgroundRgb } from "../backgroundPalette";
@@ -38,6 +47,7 @@ const GLASS_TRANSPARENCY_KEY = "aisland.display.glassTransparency.v1";
 const BACKGROUND_COLOR_KEY = "aisland.display.backgroundColor.v1";
 const EXPANSION_MOTION_KEY = "aisland.display.expansionMotion.v1";
 const COMPACT_WINDOW_KEY = "aisland.display.compactWindow.v1";
+const COMPACT_ATTENTION_KEY = "aisland.display.compactAttention.v1";
 const NOTIFICATION_POPUP_KEY = "aisland.notifications.popup.v1";
 const DEFAULT_GLASS_TRANSPARENCY = 58;
 const EXPANSION_PREVIEW_PAUSE_MS = 120;
@@ -337,9 +347,12 @@ export default function IslandShell() {
   const [scale, setScale] = useState(1);
   const [glassTransparency, setGlassTransparency] = useState(loadGlassTransparency);
   const [backgroundColor, setBackgroundColor] = useState<IslandBackgroundColor>(loadBackgroundColor);
+  const [statusColorPreferences, setStatusColorPreferences] = useState(loadStatusColorPreferences);
+  const [textColor, setTextColor] = useState(loadTextColorPreference);
   const [expansionMotion, setExpansionMotion] = useState<IslandExpansionMotion>(loadExpansionMotion);
   const expansionMotionRef = useRef(expansionMotion);
   const [compactWindowEnabled, setCompactWindowEnabled] = useState(() => loadBooleanPreference(COMPACT_WINDOW_KEY, true));
+  const [compactAttentionEnabled, setCompactAttentionEnabled] = useState(() => loadBooleanPreference(COMPACT_ATTENTION_KEY, true));
   const [notificationPopupEnabled, setNotificationPopupEnabled] = useState(() => loadBooleanPreference(NOTIFICATION_POPUP_KEY, true));
   const [activeNotification, setActiveNotification] = useState<IslandNotification | null>(null);
   const [collapsedWidth, setCollapsedWidth] = useState(DEFAULT_COLLAPSED_WIDTH);
@@ -357,8 +370,11 @@ export default function IslandShell() {
   const [selectedAgentContext, setSelectedAgentContext] = useState<AgentReminderContext | null>(null);
   const [pendingAgentRoute, setPendingAgentRoute] = useState<PendingAgentRoute | null>(null);
   const [committedAgentContext, setCommittedAgentContext] = useState<CommittedAgentContext | null>(null);
+  const [acknowledgedCompactAttention, setAcknowledgedCompactAttention] = useState<ReadonlySet<string>>(() => new Set());
   const mountedRef = useRef(false);
   const modeRef = useRef<IslandMode>("collapsed");
+  const confirmedModeRef = useRef<IslandMode>("collapsed");
+  const compactAttentionCandidatesRef = useRef<ReadonlySet<string>>(new Set());
   const initializedRef = useRef(false);
   const lifecycleRef = useRef(0);
   const settingsQueuedSequenceRef = useRef<number | null>(null);
@@ -393,6 +409,24 @@ export default function IslandShell() {
   notificationPopupEnabledRef.current = notificationPopupEnabled;
   activeNotificationRef.current = activeNotification;
   expansionMotionRef.current = expansionMotion;
+  const statusColors = useMemo(
+    () => resolveAgentStatusColors(statusColorPreferences),
+    [statusColorPreferences],
+  );
+  const acknowledgeCurrentCompactAttention = useCallback(() => {
+    const candidates = compactAttentionCandidatesRef.current;
+    if (candidates.size === 0) return;
+    setAcknowledgedCompactAttention((current) => {
+      const next = new Set(current);
+      let changed = false;
+      candidates.forEach((key) => {
+        if (next.has(key)) return;
+        next.add(key);
+        changed = true;
+      });
+      return changed ? next : current;
+    });
+  }, []);
 
   const navigatePage = useCallback(async (nextPage: IslandPage): Promise<boolean> => {
     if (nextPage === pageRef.current) return true;
@@ -434,6 +468,8 @@ export default function IslandShell() {
       },
       (value) => {
         modeRef.current = value;
+        confirmedModeRef.current = value;
+        if (value === "expanded") acknowledgeCurrentCompactAttention();
         if (mountedRef.current) {
           setMode(value);
         }
@@ -782,7 +818,9 @@ export default function IslandShell() {
 
         setMode(initial.mode);
         modeRef.current = initial.mode;
+        confirmedModeRef.current = initial.mode;
         modeCoordinatorRef.current?.resetConfirmed(initial.mode);
+        if (initial.mode === "expanded") acknowledgeCurrentCompactAttention();
         setScale(initial.scale);
         const initialCollapsedWidth = clampWindowWidth("collapsed", initial.collapsedWidth);
         const initialExpandedWidth = clampWindowWidth("expanded", initial.expandedWidth);
@@ -1170,6 +1208,28 @@ export default function IslandShell() {
     }
   }, []);
 
+  const applyStatusColor = useCallback((role: StatusColorRole, color: AppearanceColor) => {
+    setStatusColorPreferences((current) => {
+      if (current[role] === color) return current;
+      const next = { ...current, [role]: color };
+      try {
+        localStorage.setItem(STATUS_COLOR_PREFERENCES_KEY, JSON.stringify(next));
+      } catch (error) {
+        console.error("Failed to persist status colors", error);
+      }
+      return next;
+    });
+  }, []);
+
+  const applyTextColor = useCallback((color: AppearanceColor) => {
+    setTextColor(color);
+    try {
+      localStorage.setItem(TEXT_COLOR_PREFERENCE_KEY, color);
+    } catch (error) {
+      console.error("Failed to persist interface text color", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!initialized) return;
     void invoke("set_island_glass_transparency", { transparency: glassTransparency }).catch((error) => {
@@ -1202,6 +1262,15 @@ export default function IslandShell() {
       scheduleCompactCollapse();
     }
   }, [clearHoverTimers, requestMode, scheduleCompactCollapse]);
+
+  const applyCompactAttentionEnabled = useCallback((enabled: boolean) => {
+    setCompactAttentionEnabled(enabled);
+    try {
+      localStorage.setItem(COMPACT_ATTENTION_KEY, String(enabled));
+    } catch (error) {
+      console.error("Failed to persist compact-attention preference", error);
+    }
+  }, []);
 
   const applyNotificationPopupEnabled = useCallback((enabled: boolean) => {
     notificationPopupEnabledRef.current = enabled;
@@ -1424,6 +1493,25 @@ export default function IslandShell() {
     () => sortAgentsByPriority(visibleAgentSummaries(agentsSnapshot.agents)),
     [agentsSnapshot.agents],
   );
+  const compactAttentionCandidates = useMemo(
+    () => new Set(compactAttentionSignalKeys(sortedAgents, agentProfilesSnapshot.profiles)),
+    [agentProfilesSnapshot.profiles, sortedAgents],
+  );
+  compactAttentionCandidatesRef.current = compactAttentionCandidates;
+  useEffect(() => {
+    setAcknowledgedCompactAttention((current) => {
+      const next = new Set<string>();
+      compactAttentionCandidates.forEach((key) => {
+        if (confirmedModeRef.current === "expanded" || current.has(key)) next.add(key);
+      });
+      if (next.size === current.size && [...next].every((key) => current.has(key))) return current;
+      return next;
+    });
+  }, [compactAttentionCandidates]);
+  const activeCompactAttention = useMemo(() => {
+    if (!compactAttentionEnabled || mode !== "collapsed") return new Set<string>();
+    return new Set([...compactAttentionCandidates].filter((key) => !acknowledgedCompactAttention.has(key)));
+  }, [acknowledgedCompactAttention, compactAttentionCandidates, compactAttentionEnabled, mode]);
   const homeAgents = useMemo(() => {
     if (selectedAgentId === null || selectedAgentContext === null) return sortedAgents;
     if (sortedAgents.some((agent) => agent.agentId === selectedAgentId)) return sortedAgents;
@@ -1449,6 +1537,7 @@ export default function IslandShell() {
     "--glass-shell-rgb": islandBackgroundRgb(backgroundColor),
     "--glass-panel-alpha": String(Number((0.1 * glassMaterialRatio).toFixed(3))),
     "--glass-popover-alpha": String(Number((0.96 * glassMaterialRatio).toFixed(3))),
+    "--island-text-rgb": appearanceColorOption(textColor).textRgb,
     "--glass-blur": `${Math.round(glassRatio * 24)}px`,
     "--glass-saturation": `${Math.round(100 + glassRatio * 45)}%`,
   } as CSSProperties;
@@ -1464,6 +1553,7 @@ export default function IslandShell() {
         className={`island-canvas island-canvas--${mode}`}
         data-glass-transparency={glassTransparency}
         data-background-color={backgroundColor}
+        data-text-color={textColor}
         style={glassStyle}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
@@ -1477,6 +1567,8 @@ export default function IslandShell() {
                 agents={sortedAgents}
                 compactWidth={collapsedWidth}
                 profileSummaries={agentProfilesSnapshot.profiles}
+                statusColors={statusColors}
+                attentionSignalKeys={activeCompactAttention}
                 onOpenAgent={(agentId) => void openAgent(agentId)}
                 onOpenProfile={openAgentProfile}
               />
@@ -1488,7 +1580,7 @@ export default function IslandShell() {
                 </div>
                 <div className="island-mini-status" aria-label={t("aria.agentStatus")}>
                   {prioritizedStatuses.slice(0, 3).map((status, index) => (
-                    <StatusDot key={`${status}-${index}`} color={AGENT_STATUS_COLOR[status]} pulse={status === "running"} />
+                    <StatusDot key={`${status}-${index}`} color={statusColors[status]} pulse={status === "running"} />
                   ))}
                 </div>
               </>
@@ -1566,11 +1658,18 @@ export default function IslandShell() {
               onGlassTransparencyChange={applyGlassTransparency}
               backgroundColor={backgroundColor}
               onBackgroundColorChange={applyBackgroundColor}
+              statusColorPreferences={statusColorPreferences}
+              onStatusColorChange={applyStatusColor}
+              textColor={textColor}
+              onTextColorChange={applyTextColor}
+              statusColors={statusColors}
               expansionMotion={expansionMotion}
               onExpansionMotionChange={applyExpansionMotion}
               onPreviewExpansionMotion={previewExpansionMotion}
               compactWindowEnabled={compactWindowEnabled}
               onCompactWindowEnabledChange={applyCompactWindowEnabled}
+              compactAttentionEnabled={compactAttentionEnabled}
+              onCompactAttentionEnabledChange={applyCompactAttentionEnabled}
               notificationPopupEnabled={notificationPopupEnabled}
               onNotificationPopupEnabledChange={applyNotificationPopupEnabled}
               onExitSettings={() => void navigatePage("home")}
@@ -1584,7 +1683,7 @@ export default function IslandShell() {
         {mode === "expanded" && page !== "note" && page !== "settings" && (
           <main className="island-content" key={page}>
             {page === "home" ? (
-              <AgentsPage agents={homeAgents} profileSummaries={agentProfilesSnapshot.profiles} selectedAgentId={selectedAgentId} selectedContext={selectedAgentContext} selectedContextSequence={pendingAgentRoute?.sequence ?? null} onSelectedContextCommitted={setCommittedAgentContext} />
+              <AgentsPage agents={homeAgents} profileSummaries={agentProfilesSnapshot.profiles} selectedAgentId={selectedAgentId} selectedContext={selectedAgentContext} selectedContextSequence={pendingAgentRoute?.sequence ?? null} onSelectedContextCommitted={setCommittedAgentContext} statusColors={statusColors} />
             ) : page === "clipboard" ? (
               <ClipboardPage />
             ) : page === "monitor" ? (
