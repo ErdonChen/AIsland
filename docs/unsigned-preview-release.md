@@ -5,7 +5,7 @@ This runbook is the only approved path for publishing an unsigned AIsland instal
 ## Non-negotiable boundaries
 
 - Build from a clean checkout of the public repository on the GitHub-hosted Windows runner.
-- Use a tag named `preview-v<app-version>.<iteration>`, such as `preview-v0.1.0.1`. Do not use a tag beginning with `v`; `v*` is reserved for the signed release workflow.
+- Use a tag named `preview-v<app-version>.<iteration>`, such as `preview-v0.2.0.0`. A new application version may start at iteration `0`. Do not use a tag beginning with `v`; `v*` is reserved for the signed release workflow.
 - Publish the GitHub release as a Pre-release and never as `Latest`.
 - Put `Unsigned Preview` in the release title and lead the release notes with the warning template below.
 - Upload only the NSIS setup executable and `SHA256SUMS.txt`.
@@ -26,7 +26,7 @@ git pull --ff-only origin main
 gh workflow run release-windows-preview.yml \
   --repo ErdonChen/AIsland \
   --ref main \
-  -f tag=preview-v0.1.0.1 \
+  -f tag=preview-v0.2.0.0 \
   -f publish=true
 ```
 
@@ -37,7 +37,7 @@ gh run list --repo ErdonChen/AIsland --workflow release-windows-preview.yml --li
 gh run watch --repo ErdonChen/AIsland
 ```
 
-Use a new positive iteration for every attempt that reaches release creation, for example `preview-v0.1.0.2`. The tag's application version must match `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
+Start a new application version at iteration `0`, then increment the iteration for every later attempt that reaches release creation, for example `preview-v0.2.0.1`. The tag's three-part application version must match `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
 
 Set `publish=false` when you want the workflow to leave a verified draft for manual review. Set `publish=true` only when the same run should publish the verified GitHub Pre-release. In both cases, the workflow creates exactly two uploaded assets: the NSIS setup executable and `SHA256SUMS.txt`.
 

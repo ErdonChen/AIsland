@@ -19,6 +19,8 @@ test("the unsigned preview workflow stays isolated from stable releases", async 
   assert.match(workflow, /PREVIEW_SOURCE_REF:\s*\$\{\{\s*github\.ref\s*\}\}/);
   assert.match(workflow, /refs\/heads\/main/);
   assert.match(workflow, /\^preview-v\(\?<version>/);
+  assert.match(workflow, /\(\?<iteration>0\|\[1-9\]\\d\*\)/);
+  assert.match(workflow, /PREVIEW_TITLE=AIsland v\$tagVersion\.\$iteration - Unsigned Preview/);
   assert.match(workflow, /Version mismatch:/);
   assert.match(workflow, /--bundles nsis/);
   assert.match(workflow, /createUpdaterArtifacts\?\":false|createUpdaterArtifacts\":false/);

@@ -15,6 +15,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Public repository and updater links now use `ErdonChen/AIsland`.
 
+## [0.2.0-preview.0] - 2026-08-24
+
+### Added
+
+- Added independent color choices for working, idle, completed, and problem
+  status lights under Display and Appearance.
+- Added application text-color choices with a compact, readable palette.
+- Added an optional compact-mode attention effect for completed and problem
+  agents, enabled by default.
+
+### Changed
+
+- Unified settings typography, spacing, buttons, toggles, and color controls
+  with the rest of the AIsland interface.
+- Moved compact attention directly onto affected agent icons, using a bright
+  marquee edge and slow breathing glow that clears when the island expands.
+- Smoothed live window scaling with a fixed screen-space slider track and
+  latest-value native resize coordination.
+
 ## [0.1.0-preview.6] - 2026-08-20
 
 ### Added

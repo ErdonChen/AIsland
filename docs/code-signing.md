@@ -29,7 +29,7 @@ As of 2026-08-20, the preferred application order is:
 
 An unsigned preview release must satisfy every requirement below:
 
-1. Use a tag in the `preview-v<app-version>.<iteration>` namespace, for example `preview-v0.1.0.1`. Preview tags must not start with `v`, because `v*` is reserved for the signed release workflow.
+1. Use a tag in the `preview-v<app-version>.<iteration>` namespace, for example `preview-v0.2.0.0`. A new application version may start at iteration `0`. Preview tags must not start with `v`, because `v*` is reserved for the signed release workflow.
 2. Mark the GitHub release as a Pre-release. Never mark it as `Latest`.
 3. Include `Unsigned Preview` in the release title and an upfront warning in the release notes that Windows SmartScreen and UAC may report an unknown publisher.
 4. Attach only the intended NSIS installer and a `SHA256SUMS.txt` file generated from that exact installer.
