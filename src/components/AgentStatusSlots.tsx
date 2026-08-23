@@ -1,5 +1,5 @@
 import { Bot, Code2, Feather, Orbit, Sparkles, type LucideIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import claudeDesktopIcon from "../assets/agents/claude.png";
 import codexDesktopIcon from "../assets/agents/codex.png";
 import hermesDesktopIcon from "../assets/agents/hermes.png";
@@ -8,6 +8,7 @@ import traeDesktopIcon from "../assets/agents/trae.png";
 import workbuddyDesktopIcon from "../assets/agents/workbuddy.png";
 import { useI18n } from "../i18n/I18nProvider";
 import type { AgentId, AgentProfilePresetId, AgentProfileStatusSummary, AgentStatus, AgentSummary } from "../api/contracts";
+import type { AgentStatusColorMap } from "../appearancePreferences";
 import StatusDot from "./StatusDot";
 import { AGENT_STATUS_COLOR, isAgentAttentionStatus } from "./agentStatusPresentation";
 
@@ -17,16 +18,18 @@ export interface AgentStatusSlotsProps {
   onOpenAgent(agentId: AgentId): void;
   profileSummaries?: AgentProfileStatusSummary[];
   onOpenProfile?(profileId: string): void;
+  statusColors?: AgentStatusColorMap;
+  attentionSignalKeys?: ReadonlySet<string>;
 }
 
 const STATUS_RANK: Record<AgentStatus, number> = {
   failed: 0,
   timeout: 0,
-  waiting: 1,
-  running: 2,
-  completed: 3,
-  idle: 4,
-  offline: 5,
+  waiting: 0,
+  completed: 0,
+  running: 1,
+  idle: 2,
+  offline: 3,
 };
 
 const AGENT_RANK: Record<AgentId, number> = { codex: 0, hermes: 1, workbuddy: 2, claude: 3 };
@@ -68,12 +71,21 @@ type ProfileStatusSlot = {
 
 type StatusSlot = LegacyStatusSlot | ProfileStatusSlot;
 
+function newestOccurrenceForStatus<T extends { status: AgentStatus; occurredAt: number }>(
+  observations: readonly T[],
+  status: AgentStatus,
+) {
+  const matching = observations.filter((observation) => observation.status === status);
+  const relevant = matching.length > 0 ? matching : observations;
+  return Math.max(...relevant.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY);
+}
+
 export function sortAgentsByPriority(agents: AgentSummary[]): AgentSummary[] {
   return [...agents].sort((left, right) => {
     const status = STATUS_RANK[left.aggregateStatus] - STATUS_RANK[right.aggregateStatus];
     if (status !== 0) return status;
-    const newestLeft = Math.max(...left.environments.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY);
-    const newestRight = Math.max(...right.environments.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY);
+    const newestLeft = newestOccurrenceForStatus(left.environments, left.aggregateStatus);
+    const newestRight = newestOccurrenceForStatus(right.environments, right.aggregateStatus);
     if (newestLeft !== newestRight) return newestRight - newestLeft;
     return AGENT_RANK[left.agentId] - AGENT_RANK[right.agentId];
   });
@@ -89,7 +101,7 @@ export function visibleProfileStatusSlots(profiles: AgentProfileStatusSummary[])
     .map((profile) => ({
       kind: "profile" as const,
       status: profile.aggregateStatus,
-      occurredAt: Math.max(...profile.observations.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY),
+      occurredAt: newestOccurrenceForStatus(profile.observations, profile.aggregateStatus),
       logo: profile.profile.configTarget.kind === "preset" ? profile.profile.configTarget.adapterId : "custom",
       profile,
     }));
@@ -113,10 +125,25 @@ function collectStatusSlots(agents: AgentSummary[], profileSummaries: AgentProfi
       kind: "legacy" as const,
       agent,
       status: agent.aggregateStatus,
-      occurredAt: Math.max(...agent.environments.map((observation) => observation.occurredAt), Number.NEGATIVE_INFINITY),
+      occurredAt: newestOccurrenceForStatus(agent.environments, agent.aggregateStatus),
     })),
     ...visibleProfileStatusSlots(profileSummaries),
   ]);
+}
+
+function compactAttentionSignalKey(slot: StatusSlot): string | null {
+  if (slot.status !== "completed" && !isAgentAttentionStatus(slot.status)) return null;
+  const identity = slot.kind === "legacy" ? `agent:${slot.agent.agentId}` : `profile:${slot.profile.profile.id}`;
+  return `${identity}:${slot.status}:${slot.occurredAt}`;
+}
+
+export function compactAttentionSignalKeys(
+  agents: AgentSummary[],
+  profileSummaries: AgentProfileStatusSummary[],
+): string[] {
+  return collectStatusSlots(agents, profileSummaries)
+    .map(compactAttentionSignalKey)
+    .filter((key): key is string => key !== null);
 }
 
 export function prioritizedAgentStatuses(agents: AgentSummary[], profileSummaries: AgentProfileStatusSummary[]) {
@@ -144,9 +171,19 @@ export function visibleAgentCapacityForWidth(width: number) {
   return Math.max(4, Math.floor((width - 124) / 31));
 }
 
-export default function AgentStatusSlots({ agents, compactWidth = 720, profileSummaries = [], onOpenAgent, onOpenProfile }: AgentStatusSlotsProps) {
+export default function AgentStatusSlots({ agents, compactWidth = 720, profileSummaries = [], onOpenAgent, onOpenProfile, statusColors = AGENT_STATUS_COLOR, attentionSignalKeys }: AgentStatusSlotsProps) {
   const { t } = useI18n();
   const sorted = useMemo<StatusSlot[]>(() => collectStatusSlots(agents, profileSummaries), [agents, profileSummaries]);
+  const orbitAttentionSignalKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const slot of sorted) {
+      const key = compactAttentionSignalKey(slot);
+      if (key === null || attentionSignalKeys?.has(key) !== true) continue;
+      keys.push(key);
+      if (keys.length === 2) break;
+    }
+    return new Set(keys);
+  }, [attentionSignalKeys, sorted]);
   const visibleCapacity = visibleAgentCapacityForWidth(compactWidth);
   const hiddenCount = Math.max(0, sorted.length - visibleCapacity);
   const running = sorted.some((slot) => slot.status === "running");
@@ -171,6 +208,16 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
     <div className="agent-status-slots" aria-label={t("aria.agentStatus")}>
       <div className="agent-logo-strip">
         {sorted.slice(0, visibleCapacity).map((slot) => {
+          const signalKey = compactAttentionSignalKey(slot);
+          const showAttention = signalKey !== null && attentionSignalKeys?.has(signalKey) === true;
+          const showOrbit = signalKey !== null && orbitAttentionSignalKeys.has(signalKey);
+          const attentionProps = showAttention
+            ? {
+                className: `agent-logo-button agent-logo-button--attention${showOrbit ? " agent-logo-button--attention-orbit" : ""}`,
+                "data-attention-signal": signalKey,
+                style: { "--agent-attention-color": statusColors[slot.status] } as CSSProperties,
+              }
+            : { className: "agent-logo-button" };
           if (slot.kind === "profile") {
             const { profile } = slot.profile;
             const logo = PROFILE_LOGOS[slot.logo];
@@ -179,7 +226,7 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
             return (
               <button
                 key={profile.id}
-                className="agent-logo-button"
+                {...attentionProps}
                 data-profile-id={profile.id}
                 aria-label={`${profile.displayName} · ${environment} · ${status}`}
                 title={`${profile.displayName} · ${environment} · ${status}`}
@@ -189,7 +236,7 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
                 <span className={`agent-gui-logo agent-gui-logo--profile agent-gui-logo--profile-${slot.logo}`} data-testid="agent-gui-logo" aria-hidden="true">
                   <AgentLogo asset={logo} />
                 </span>
-                <StatusDot color={AGENT_STATUS_COLOR[slot.status]} pulse={slot.status === "running"} />
+                <StatusDot color={statusColors[slot.status]} pulse={slot.status === "running"} />
               </button>
             );
           }
@@ -199,7 +246,7 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
           return (
             <button
               key={agent.agentId}
-              className="agent-logo-button"
+              {...attentionProps}
               data-agent-id={agent.agentId}
               aria-label={`${agent.displayName} · ${status}`}
               title={`${agent.displayName} · ${status}`}
@@ -209,7 +256,7 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
               <span className={`agent-gui-logo agent-gui-logo--${agent.agentId}`} data-testid="agent-gui-logo" aria-hidden="true">
                 <AgentLogo asset={logo} />
               </span>
-              <StatusDot color={AGENT_STATUS_COLOR[slot.status]} pulse={slot.status === "running"} />
+              <StatusDot color={statusColors[slot.status]} pulse={slot.status === "running"} />
             </button>
           );
         })}
@@ -217,7 +264,7 @@ export default function AgentStatusSlots({ agents, compactWidth = 720, profileSu
       </div>
       <div className="agent-compact-state" aria-label={overallStatus}>
         <StatusDot
-          color={AGENT_STATUS_COLOR[overallSignal]}
+          color={statusColors[overallSignal]}
           pulse={overallSignal === "running"}
         />
         <span>{overallStatus}</span>

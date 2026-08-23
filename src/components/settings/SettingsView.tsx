@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -28,16 +28,50 @@ import DiagnosticsSettings from "../../settings/DiagnosticsSettings";
 import ReminderSettings from "../../settings/ReminderSettings";
 import MonitorSettings from "../../settings/MonitorSettings";
 import { ISLAND_BACKGROUND_OPTIONS } from "../../backgroundPalette";
+import {
+  APPEARANCE_COLOR_OPTIONS,
+  type AgentStatusColorMap,
+  type AppearanceColor,
+  type StatusColorPreferences,
+  type StatusColorRole,
+} from "../../appearancePreferences";
 import type { IslandBackgroundColor, IslandExpansionMotion } from "../../types";
 import { scaleFromSliderPosition, sliderPositionFromScale, windowScalePercent } from "../../windowGeometry";
 import StatusDot from "../StatusDot";
-import { AGENT_STATUS_COLOR } from "../agentStatusPresentation";
 import SettingRow from "./SettingRow";
 
 const EXPANSION_MOTION_OPTIONS: readonly { value: IslandExpansionMotion; key: TranslationKey }[] = [
   { value: "elastic", key: "settings.expansionMotion.elastic" },
   { value: "smooth", key: "settings.expansionMotion.smooth" },
   { value: "swift", key: "settings.expansionMotion.swift" },
+];
+
+const SCALE_SLIDER_THUMB_SIZE = 17;
+
+type FixedScaleTrack = {
+  pointerId: number;
+  left: number;
+  width: number;
+  thumbSize: number;
+};
+
+function sliderPositionFromFixedTrack(screenX: number, track: FixedScaleTrack) {
+  const thumbInset = track.thumbSize / 2;
+  const usableWidth = Math.max(1, track.width - track.thumbSize);
+  const ratio = (screenX - track.left - thumbInset) / usableWidth;
+  return Math.round(Math.min(100, Math.max(0, ratio * 100)));
+}
+
+const STATUS_COLOR_ROLES: readonly {
+  value: StatusColorRole;
+  labelKey: TranslationKey;
+  groupLabelKey: TranslationKey;
+  previewStatus: keyof AgentStatusColorMap;
+}[] = [
+  { value: "running", labelKey: "settings.statusColor.running", groupLabelKey: "settings.statusColor.runningLabel", previewStatus: "running" },
+  { value: "idle", labelKey: "settings.statusColor.idle", groupLabelKey: "settings.statusColor.idleLabel", previewStatus: "idle" },
+  { value: "completed", labelKey: "settings.statusColor.completed", groupLabelKey: "settings.statusColor.completedLabel", previewStatus: "completed" },
+  { value: "attention", labelKey: "settings.statusColor.attention", groupLabelKey: "settings.statusColor.attentionLabel", previewStatus: "waiting" },
 ];
 
 const CATEGORY_ICONS = {
@@ -64,11 +98,18 @@ type SettingsViewProps = {
   onGlassTransparencyChange: (transparency: number) => void;
   backgroundColor: IslandBackgroundColor;
   onBackgroundColorChange: (color: IslandBackgroundColor) => void;
+  statusColorPreferences: StatusColorPreferences;
+  onStatusColorChange: (role: StatusColorRole, color: AppearanceColor) => void;
+  textColor: AppearanceColor;
+  onTextColorChange: (color: AppearanceColor) => void;
+  statusColors: AgentStatusColorMap;
   expansionMotion: IslandExpansionMotion;
   onExpansionMotionChange: (motion: IslandExpansionMotion) => void;
   onPreviewExpansionMotion: () => Promise<void>;
   compactWindowEnabled: boolean;
   onCompactWindowEnabledChange: (enabled: boolean) => void;
+  compactAttentionEnabled: boolean;
+  onCompactAttentionEnabledChange: (enabled: boolean) => void;
   notificationPopupEnabled: boolean;
   onNotificationPopupEnabledChange: (enabled: boolean) => void;
   onExitSettings: () => void;
@@ -85,11 +126,18 @@ export default function SettingsView({
   onGlassTransparencyChange,
   backgroundColor,
   onBackgroundColorChange,
+  statusColorPreferences,
+  onStatusColorChange,
+  textColor,
+  onTextColorChange,
+  statusColors,
   expansionMotion,
   onExpansionMotionChange,
   onPreviewExpansionMotion,
   compactWindowEnabled,
   onCompactWindowEnabledChange,
+  compactAttentionEnabled,
+  onCompactAttentionEnabledChange,
   notificationPopupEnabled,
   onNotificationPopupEnabledChange,
   onExitSettings,
@@ -131,6 +179,8 @@ export default function SettingsView({
   const remindersActiveRef = useRef(false);
   const reminderRulesGenerationRef = useRef(0);
   const reminderRouteGenerationRef = useRef(0);
+  const scalePointerTrackRef = useRef<FixedScaleTrack | null>(null);
+  const ignoreNativeScaleChangeRef = useRef(false);
   const category = route.level === "root" ? null : settingsCategoryById(route.category);
   const scaleSliderPosition = Math.round(sliderPositionFromScale(scale));
   const scalePercent = windowScalePercent(scale);
@@ -152,6 +202,36 @@ export default function SettingsView({
   }), [glassTransparency, language, scalePercent, t]);
   const diagnosticsActive = route.level === "category" && route.category === "diagnostics";
   const remindersActive = route.level !== "root" && route.category === "reminders";
+  const renderAppearanceColorPalette = (
+    label: string,
+    selectedColor: AppearanceColor,
+    purpose: "signal" | "text",
+    onSelect: (color: AppearanceColor) => void,
+    compact = false,
+  ) => (
+    <div className={"settings-color-palette settings-color-palette--appearance" + (compact ? " settings-color-palette--compact" : "")} role="group" aria-label={label}>
+      {APPEARANCE_COLOR_OPTIONS.map((option) => {
+        const selected = selectedColor === option.value;
+        const colorLabel = t(("settings.appearanceColor." + option.value) as TranslationKey);
+        return (
+          <div key={option.value} className="settings-color-option">
+            <button
+              type="button"
+              className={"settings-color-swatch" + (selected ? " settings-color-swatch--active" : "")}
+              aria-label={colorLabel}
+              aria-pressed={selected}
+              title={colorLabel}
+              style={{ "--settings-swatch-color": purpose === "text" ? option.textHex : option.signalHex } as CSSProperties}
+              onClick={() => onSelect(option.value)}
+            >
+              <span className="settings-color-swatch__selected" aria-hidden="true">✓</span>
+            </button>
+            <span aria-hidden="true">{colorLabel}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const previewExpansionMotion = useCallback(async () => {
     if (expansionPreviewPending) return;
@@ -165,6 +245,57 @@ export default function SettingsView({
       setExpansionPreviewPending(false);
     }
   }, [expansionPreviewPending, onPreviewExpansionMotion]);
+  const updateScaleFromPointer = useCallback((screenX: number) => {
+    const track = scalePointerTrackRef.current;
+    if (track === null) return;
+    onScaleChange(scaleFromSliderPosition(sliderPositionFromFixedTrack(screenX, track)));
+  }, [onScaleChange]);
+  const beginScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (event.button !== 0) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const screenOffsetX = event.screenX - event.clientX;
+    scalePointerTrackRef.current = {
+      pointerId: event.pointerId,
+      left: screenOffsetX + bounds.left,
+      width: bounds.width,
+      thumbSize: SCALE_SLIDER_THUMB_SIZE * scale,
+    };
+    ignoreNativeScaleChangeRef.current = true;
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+    updateScaleFromPointer(event.screenX);
+  }, [scale, updateScaleFromPointer]);
+  const continueScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (scalePointerTrackRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    updateScaleFromPointer(event.screenX);
+  }, [updateScaleFromPointer]);
+  const finishScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (scalePointerTrackRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    updateScaleFromPointer(event.screenX);
+    scalePointerTrackRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    queueMicrotask(() => {
+      ignoreNativeScaleChangeRef.current = false;
+    });
+  }, [updateScaleFromPointer]);
+  const cancelScalePointerDrag = useCallback((event: ReactPointerEvent<HTMLInputElement>) => {
+    if (scalePointerTrackRef.current?.pointerId !== event.pointerId) return;
+    scalePointerTrackRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    queueMicrotask(() => {
+      ignoreNativeScaleChangeRef.current = false;
+    });
+  }, []);
   const generalActive = route.level === "category" && route.category === "general";
   const ownsDiagnosticsGeneration = useCallback(
     (generation: number) =>
@@ -604,6 +735,41 @@ export default function SettingsView({
                 })}
               </div>
             </div>
+            <div className="settings-control settings-status-colors">
+              <div className="settings-control__copy">
+                <span>{t("settings.statusColors")}</span>
+                <span>{t("settings.statusColorsHint")}</span>
+              </div>
+              <div className="settings-status-colors__rows">
+                {STATUS_COLOR_ROLES.map((role) => (
+                  <div key={role.value} className="settings-status-color-row">
+                    <div className="settings-status-color-row__label">
+                      <StatusDot color={statusColors[role.previewStatus]} pulse={role.value === "running"} />
+                      <span>{t(role.labelKey)}</span>
+                    </div>
+                    {renderAppearanceColorPalette(
+                      t(role.groupLabelKey),
+                      statusColorPreferences[role.value],
+                      "signal",
+                      (color) => onStatusColorChange(role.value, color),
+                      true,
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="settings-control settings-text-color">
+              <div className="settings-control__copy">
+                <span>{t("settings.textColor")}</span>
+                <span>{t("settings.textColorHint")}</span>
+              </div>
+              {renderAppearanceColorPalette(
+                t("settings.textColor"),
+                textColor,
+                "text",
+                onTextColorChange,
+              )}
+            </div>
             <div className="settings-control settings-glass-control">
               <div className="settings-control__heading">
                 <div className="settings-control__copy">
@@ -654,8 +820,15 @@ export default function SettingsView({
                   aria-label={t("settings.scale")}
                   aria-valuetext={`${scalePercent}%`}
                   style={{ "--range-progress": `${scaleSliderPosition}%` } as CSSProperties}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onChange={(event) => onScaleChange(scaleFromSliderPosition(Number(event.currentTarget.value)))}
+                  onPointerDown={beginScalePointerDrag}
+                  onPointerMove={continueScalePointerDrag}
+                  onPointerUp={finishScalePointerDrag}
+                  onPointerCancel={cancelScalePointerDrag}
+                  onLostPointerCapture={cancelScalePointerDrag}
+                  onChange={(event) => {
+                    if (scalePointerTrackRef.current !== null || ignoreNativeScaleChangeRef.current) return;
+                    onScaleChange(scaleFromSliderPosition(Number(event.currentTarget.value)));
+                  }}
                 />
                 <div className="settings-range__labels" aria-hidden="true">
                   <span>80%</span>
@@ -711,7 +884,7 @@ export default function SettingsView({
                 <div className="settings-motion-preview" data-testid="agent-state-motion-preview" data-preview-status={statusPreview}>
                   <div className="settings-motion-preview__sample" role="status" aria-live="polite">
                     <span className="settings-motion-preview__orb" aria-hidden="true">
-                      <StatusDot color={statusPreview === "working" ? AGENT_STATUS_COLOR.running : AGENT_STATUS_COLOR.idle} pulse={statusPreview === "working"} />
+                      <StatusDot color={statusPreview === "working" ? statusColors.running : statusColors.idle} pulse={statusPreview === "working"} />
                     </span>
                     <span>{t(statusPreview === "working" ? "settings.statusPreview.working" : "settings.statusPreview.idle")}</span>
                   </div>
@@ -744,6 +917,23 @@ export default function SettingsView({
                 aria-checked={compactWindowEnabled}
                 title={t(compactWindowEnabled ? "settings.state.enabled" : "settings.state.disabled")}
                 onClick={() => onCompactWindowEnabledChange(!compactWindowEnabled)}
+              >
+                <span className="settings-switch__thumb" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="settings-control settings-toggle-row">
+              <div className="settings-control__copy">
+                <span>{t("settings.compactAttention")}</span>
+                <span>{t("settings.compactAttentionHint")}</span>
+              </div>
+              <button
+                type="button"
+                className="settings-switch"
+                role="switch"
+                aria-label={t("settings.compactAttention")}
+                aria-checked={compactAttentionEnabled}
+                title={t(compactAttentionEnabled ? "settings.state.enabled" : "settings.state.disabled")}
+                onClick={() => onCompactAttentionEnabledChange(!compactAttentionEnabled)}
               >
                 <span className="settings-switch__thumb" aria-hidden="true" />
               </button>

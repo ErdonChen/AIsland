@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { AgentEnvironment, AgentId, AgentProfileStatusSummary, AgentStatus, AgentSummary, AgentTriggerStatus } from "../api/contracts";
 import { useI18n } from "../i18n/I18nProvider";
 import StatusDot from "../components/StatusDot";
+import type { AgentStatusColorMap } from "../appearancePreferences";
 import { AGENT_STATUS_COLOR } from "../components/agentStatusPresentation";
 
 export interface AgentsPageProps {
@@ -11,6 +12,7 @@ export interface AgentsPageProps {
   selectedContext?: { environment: AgentEnvironment; taskId: string; triggerStatus: AgentTriggerStatus } | null;
   selectedContextSequence?: number | null;
   onSelectedContextCommitted?: (context: CommittedAgentContext) => void;
+  statusColors?: AgentStatusColorMap;
 }
 
 type StatusCard =
@@ -29,7 +31,7 @@ function statusKey(status: AgentStatus) {
   return `agents.status.${status}` as const;
 }
 
-export default function AgentsPage({ agents, profileSummaries = [], selectedAgentId = null, selectedContext = null, selectedContextSequence = null, onSelectedContextCommitted }: AgentsPageProps) {
+export default function AgentsPage({ agents, profileSummaries = [], selectedAgentId = null, selectedContext = null, selectedContextSequence = null, onSelectedContextCommitted, statusColors = AGENT_STATUS_COLOR }: AgentsPageProps) {
   const { t } = useI18n();
   const selectedAgent = agents.find((agent) => agent.agentId === selectedAgentId) ?? null;
   const statusCards = useMemo<StatusCard[]>(() => [
@@ -85,7 +87,7 @@ export default function AgentsPage({ agents, profileSummaries = [], selectedAgen
                 aria-label={ariaLabel}
               >
                 <div className="agent-card__heading">
-                  <span className="agent-card__identity"><StatusDot color={AGENT_STATUS_COLOR[aggregateStatus]} pulse={aggregateStatus === "running"} />{profile.displayName}</span>
+                  <span className="agent-card__identity"><StatusDot color={statusColors[aggregateStatus]} pulse={aggregateStatus === "running"} />{profile.displayName}</span>
                   <span className="agent-card__aggregate">{t(statusKey(aggregateStatus))}</span>
                 </div>
                 <div className="agent-card__sources" aria-label={`${environments.length}`}>
@@ -128,7 +130,7 @@ export default function AgentsPage({ agents, profileSummaries = [], selectedAgen
               aria-current={selectedAgentId === agent.agentId ? "true" : undefined}
             >
               <div className="agent-card__heading">
-                <span className="agent-card__identity"><StatusDot color={AGENT_STATUS_COLOR[agent.aggregateStatus]} pulse={agent.aggregateStatus === "running"} />{agent.displayName}</span>
+                <span className="agent-card__identity"><StatusDot color={statusColors[agent.aggregateStatus]} pulse={agent.aggregateStatus === "running"} />{agent.displayName}</span>
                 <span className="agent-card__aggregate">{t(statusKey(agent.aggregateStatus))}</span>
               </div>
               <div className="agent-card__sources" aria-label={`${agent.environments.length}`}>

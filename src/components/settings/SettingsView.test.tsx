@@ -56,6 +56,13 @@ vi.mock("../../settings/MonitorSettings", () => ({
 }));
 
 import { I18nProvider, useI18n } from "../../i18n/I18nProvider";
+import {
+  DEFAULT_STATUS_COLOR_PREFERENCES,
+  resolveAgentStatusColors,
+  type AppearanceColor,
+  type StatusColorPreferences,
+  type StatusColorRole,
+} from "../../appearancePreferences";
 import SettingRow from "./SettingRow";
 import SettingsView from "./SettingsView";
 
@@ -75,8 +82,11 @@ function SettingsHarness({
   const [scale, setScale] = useState(1);
   const [glassTransparency, setGlassTransparency] = useState(58);
   const [backgroundColor, setBackgroundColor] = useState<"midnight" | "ocean" | "graphite" | "pine" | "nebula" | "rock">("midnight");
+  const [statusColorPreferences, setStatusColorPreferences] = useState<StatusColorPreferences>({ ...DEFAULT_STATUS_COLOR_PREFERENCES });
+  const [textColor, setTextColor] = useState<AppearanceColor>("white");
   const [expansionMotion, setExpansionMotion] = useState<"elastic" | "smooth" | "swift">("elastic");
   const [compactWindowEnabled, setCompactWindowEnabled] = useState(true);
+  const [compactAttentionEnabled, setCompactAttentionEnabled] = useState(true);
   const [notificationPopupEnabled, setNotificationPopupEnabled] = useState(true);
 
   return (
@@ -87,11 +97,18 @@ function SettingsHarness({
       onGlassTransparencyChange={setGlassTransparency}
       backgroundColor={backgroundColor}
       onBackgroundColorChange={setBackgroundColor}
+      statusColorPreferences={statusColorPreferences}
+      onStatusColorChange={(role: StatusColorRole, color: AppearanceColor) => setStatusColorPreferences((current) => ({ ...current, [role]: color }))}
+      textColor={textColor}
+      onTextColorChange={setTextColor}
+      statusColors={resolveAgentStatusColors(statusColorPreferences)}
       expansionMotion={expansionMotion}
       onExpansionMotionChange={setExpansionMotion}
       onPreviewExpansionMotion={() => Promise.resolve()}
       compactWindowEnabled={compactWindowEnabled}
       onCompactWindowEnabledChange={setCompactWindowEnabled}
+      compactAttentionEnabled={compactAttentionEnabled}
+      onCompactAttentionEnabledChange={setCompactAttentionEnabled}
       notificationPopupEnabled={notificationPopupEnabled}
       onNotificationPopupEnabledChange={setNotificationPopupEnabled}
       onExitSettings={onExitSettings}
@@ -714,6 +731,30 @@ test("renders the confirmed 0-100 scale slider and previews the mapped percentag
   expect(slider).toHaveValue("75");
   expect(slider).toHaveAttribute("aria-valuetext", "160%");
   expect(screen.getByText("160%", { selector: "output" })).toBeInTheDocument();
+});
+
+test("keeps pointer scaling anchored to the track geometry captured before the window resizes", async () => {
+  const user = userEvent.setup();
+  renderSettings();
+
+  await user.click(screen.getByRole("button", { name: "显示与外观" }));
+  const slider = screen.getByRole("slider", { name: "窗口缩放" });
+  let sliderBounds = new DOMRect(100, 0, 400, 22);
+  vi.spyOn(slider, "getBoundingClientRect").mockImplementation(() => sliderBounds);
+  Object.defineProperties(slider, {
+    setPointerCapture: { configurable: true, value: vi.fn() },
+    hasPointerCapture: { configurable: true, value: vi.fn().mockReturnValue(true) },
+    releasePointerCapture: { configurable: true, value: vi.fn() },
+  });
+
+  fireEvent.pointerDown(slider, { button: 0, pointerId: 11, clientX: 292, screenX: 1292 });
+  sliderBounds = new DOMRect(50, 0, 200, 22);
+  fireEvent.pointerMove(slider, { pointerId: 11, clientX: 350, screenX: 1396 });
+  fireEvent.pointerUp(slider, { pointerId: 11, clientX: 350, screenX: 1396 });
+  fireEvent.change(slider, { target: { value: "20" } });
+
+  expect(slider).toHaveValue("75");
+  expect(slider).toHaveAttribute("aria-valuetext", "160%");
 });
 
 test("opens the AIsland Agent settings surface with the new preset and Custom Hook choices", async () => {

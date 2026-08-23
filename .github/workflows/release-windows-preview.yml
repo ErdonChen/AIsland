@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Preview tag in the form preview-v0.1.0.1
+        description: Preview tag in the form preview-v0.2.0.0
         required: true
         type: string
       publish:
@@ -42,8 +42,8 @@ jobs:
             throw "Unsigned previews must be dispatched from the main branch, not '$env:PREVIEW_SOURCE_REF'."
           }
           $tag = $env:PREVIEW_INPUT_TAG.Trim()
-          if ($tag -notmatch '^preview-v(?<version>\d+\.\d+\.\d+)\.(?<iteration>[1-9]\d*)$') {
-            throw "Preview tag '$tag' must match preview-v<app-version>.<positive iteration>, for example preview-v0.1.0.1."
+          if ($tag -notmatch '^preview-v(?<version>\d+\.\d+\.\d+)\.(?<iteration>0|[1-9]\d*)$') {
+            throw "Preview tag '$tag' must match preview-v<app-version>.<non-negative iteration>, for example preview-v0.2.0.0."
           }
           $tagVersion = $Matches.version
           $iteration = $Matches.iteration
@@ -69,7 +69,7 @@ jobs:
           "PREVIEW_TAG=$tag" >> $env:GITHUB_ENV
           "APP_VERSION=$tagVersion" >> $env:GITHUB_ENV
           "PREVIEW_ITERATION=$iteration" >> $env:GITHUB_ENV
-          "PREVIEW_TITLE=AIsland v$tagVersion - Unsigned Preview $iteration" >> $env:GITHUB_ENV
+          "PREVIEW_TITLE=AIsland v$tagVersion.$iteration - Unsigned Preview" >> $env:GITHUB_ENV
 
       - name: Install pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -160,15 +160,15 @@ jobs:
             "",
             "## Added",
             "",
-            "- Added six application background colors with circular previews and independent glass transparency under Display and Appearance.",
-            "- Added manual Daily Notes recording through the system default microphone, including multiple local clips, playback, deletion, and recoverable failure handling.",
-            "- Added a collapsible Monday-first Daily Notes calendar with month and keyboard navigation plus markers for text and recording content.",
+            "- Added independent status-light color choices for working, idle, completed, and problem states under Display and Appearance.",
+            "- Added an application text-color selector with a compact set of readable palette choices.",
+            "- Added an optional compact-mode attention effect for completed and problem agents, enabled by default.",
             "",
             "## Changed",
             "",
-            "- Connected Elastic, Smooth, and Swift appearance choices to distinct native window animations and added an in-settings preview.",
-            "- Daily Notes now finish pending text saves and active recordings before date or page navigation, and keep the current context on recoverable failure.",
-            "- Recording encoder failures and incomplete assets are recovered instead of being exposed as successful playable recordings.",
+            "- Unified settings typography, spacing, buttons, toggles, and color controls with the rest of the AIsland interface.",
+            "- Made compact attention visible directly around the affected agent icon with a brighter marquee edge and slow breathing glow that clears when the island expands.",
+            "- Smoothed live window scaling with a fixed screen-space slider track and latest-value native resize coordination.",
             "",
             "## Build provenance",
             "",
@@ -178,6 +178,7 @@ jobs:
             "- Package: NSIS installer",
             "- Authenticode status: NotSigned",
             "- SHA-256: see SHA256SUMS.txt",
+            "- Code signing policy: https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/docs/code-signing.md",
             "",
             "## Scope",
             "",

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import type { AgentProfileStatusSummary, AgentSummary } from "../api/contracts";
 import { I18nProvider } from "../i18n/I18nProvider";
-import { prioritizedAgentStatuses, visibleAgentCapacityForWidth, visibleAgentSummaries } from "./AgentStatusSlots";
+import { compactAttentionSignalKeys, prioritizedAgentStatuses, visibleAgentCapacityForWidth, visibleAgentSummaries } from "./AgentStatusSlots";
 import { AGENT_STATUS_COLOR } from "./agentStatusPresentation";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
@@ -168,6 +168,92 @@ test("keeps priority order while making every fixed Agent logo directly availabl
     .toEqual(["codex", "hermes", "workbuddy", "claude"]);
   await user.click(screen.getByRole("button", { name: /^claude/ }));
   expect(onOpenAgent).toHaveBeenCalledWith("claude");
+});
+
+test("binds compact attention identity to the observation that actually supplies the aggregate status", () => {
+  const failedAgent: AgentSummary = {
+    agentId: "codex",
+    displayName: "Codex",
+    aggregateStatus: "failed",
+    integrations: [],
+    environments: [
+      { agentId: "codex", environment: "windows", taskId: "failed", status: "failed", summary: "", sourceEventId: "failed-10", occurredAt: 10, receivedAt: 10 },
+      { agentId: "codex", environment: "wsl", taskId: "idle", status: "idle", summary: "", sourceEventId: "idle-20", occurredAt: 20, receivedAt: 20 },
+    ],
+  };
+  const waitingProfile: AgentProfileStatusSummary = {
+    profile: {
+      ...profileSummaries[0].profile,
+      id: "waiting-profile",
+      displayName: "Waiting profile",
+    },
+    aggregateStatus: "waiting",
+    observations: [
+      { profileId: "waiting-profile", environment: "windows", taskId: "waiting", status: "waiting", sourceEventId: "waiting-30", occurredAt: 30, receivedAt: 30 },
+      { profileId: "waiting-profile", environment: "wsl", taskId: "idle", status: "idle", sourceEventId: "idle-40", occurredAt: 40, receivedAt: 40 },
+    ],
+  };
+
+  expect(compactAttentionSignalKeys([failedAgent], [waitingProfile])).toEqual([
+    "profile:waiting-profile:waiting:30",
+    "agent:codex:failed:10",
+  ]);
+
+  const unrelatedUpdates = {
+    ...failedAgent,
+    environments: failedAgent.environments.map((observation) => observation.status === "idle"
+      ? { ...observation, sourceEventId: "idle-21", occurredAt: 21, receivedAt: 21 }
+      : observation),
+  };
+  const unrelatedProfileUpdates = {
+    ...waitingProfile,
+    observations: waitingProfile.observations.map((observation) => observation.status === "idle"
+      ? { ...observation, sourceEventId: "idle-41", occurredAt: 41, receivedAt: 41 }
+      : observation),
+  };
+
+  expect(compactAttentionSignalKeys([unrelatedUpdates], [unrelatedProfileUpdates])).toEqual([
+    "profile:waiting-profile:waiting:30",
+    "agent:codex:failed:10",
+  ]);
+});
+
+test("qualifies completed, failed, waiting, and timeout observations for compact attention", () => {
+  const qualifiedAgents: AgentSummary[] = [
+    { agentId: "codex", displayName: "Codex", aggregateStatus: "completed", integrations: [], environments: [{ agentId: "codex", environment: "windows", taskId: "done", status: "completed", summary: "", sourceEventId: "done-1", occurredAt: 1, receivedAt: 1 }] },
+    { agentId: "hermes", displayName: "Hermes", aggregateStatus: "failed", integrations: [], environments: [{ agentId: "hermes", environment: "windows", taskId: "failed", status: "failed", summary: "", sourceEventId: "failed-2", occurredAt: 2, receivedAt: 2 }] },
+    { agentId: "workbuddy", displayName: "WorkBuddy", aggregateStatus: "waiting", integrations: [], environments: [{ agentId: "workbuddy", environment: "windows", taskId: "waiting", status: "waiting", summary: "", sourceEventId: "waiting-3", occurredAt: 3, receivedAt: 3 }] },
+    { agentId: "claude", displayName: "claude", aggregateStatus: "timeout", integrations: [], environments: [{ agentId: "claude", environment: "windows", taskId: "timeout", status: "timeout", summary: "", sourceEventId: "timeout-4", occurredAt: 4, receivedAt: 4 }] },
+  ];
+
+  expect(new Set(compactAttentionSignalKeys(qualifiedAgents, []))).toEqual(new Set([
+    "agent:codex:completed:1",
+    "agent:hermes:failed:2",
+    "agent:workbuddy:waiting:3",
+    "agent:claude:timeout:4",
+  ]));
+});
+
+test("limits orbiting attention to the two leading signals while preserving later static markers", async () => {
+  const attentionAgents: AgentSummary[] = [
+    { agentId: "codex", displayName: "Codex", aggregateStatus: "completed", integrations: [], environments: [{ agentId: "codex", environment: "windows", taskId: "done", status: "completed", summary: "", sourceEventId: "done-1", occurredAt: 1, receivedAt: 1 }] },
+    { agentId: "hermes", displayName: "Hermes", aggregateStatus: "failed", integrations: [], environments: [{ agentId: "hermes", environment: "windows", taskId: "failed", status: "failed", summary: "", sourceEventId: "failed-2", occurredAt: 2, receivedAt: 2 }] },
+    { agentId: "workbuddy", displayName: "WorkBuddy", aggregateStatus: "waiting", integrations: [], environments: [{ agentId: "workbuddy", environment: "windows", taskId: "waiting", status: "waiting", summary: "", sourceEventId: "waiting-3", occurredAt: 3, receivedAt: 3 }] },
+  ];
+  const attentionSignalKeys = new Set(compactAttentionSignalKeys(attentionAgents, []));
+  const componentPath = "./AgentStatusSlots";
+  const { default: AgentStatusSlots } = await import(componentPath);
+
+  render(
+    <I18nProvider>
+      <AgentStatusSlots agents={attentionAgents} attentionSignalKeys={attentionSignalKeys} onOpenAgent={vi.fn()} />
+    </I18nProvider>,
+  );
+
+  const attentionButtons = [...document.querySelectorAll(".agent-logo-button--attention")];
+  expect(attentionButtons).toHaveLength(3);
+  expect(attentionButtons.map((button) => button.classList.contains("agent-logo-button--attention-orbit")))
+    .toEqual([true, true, false]);
 });
 
 test("omits a zero overflow control and keeps slot interactions out of the drag region", async () => {
