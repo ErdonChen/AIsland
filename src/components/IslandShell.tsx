@@ -826,7 +826,6 @@ export default function IslandShell() {
         modeRef.current = initial.mode;
         confirmedModeRef.current = initial.mode;
         modeCoordinatorRef.current?.resetConfirmed(initial.mode);
-        if (initial.mode === "expanded") acknowledgeCurrentCompactAttention();
         setScale(initial.scale);
         const initialCollapsedWidth = clampWindowWidth("collapsed", initial.collapsedWidth);
         const initialExpandedWidth = clampWindowWidth("expanded", initial.expandedWidth);
@@ -1296,17 +1295,22 @@ export default function IslandShell() {
     }
   }, [scheduleCompactCollapse]);
 
+  const acknowledgeCollapsedCompactAttention = useCallback(() => {
+    if (modeRef.current === "collapsed") acknowledgeCurrentCompactAttention();
+  }, [acknowledgeCurrentCompactAttention]);
+
   const handlePointerEnter = useCallback(() => {
     isHoveredRef.current = true;
     if (hoverCollapseTimerRef.current !== undefined) window.clearTimeout(hoverCollapseTimerRef.current);
     hoverCollapseTimerRef.current = undefined;
+    acknowledgeCollapsedCompactAttention();
     if (expansionPreviewInFlightRef.current || !compactWindowEnabledRef.current || modeRef.current !== "collapsed") return;
     if (hoverExpandTimerRef.current !== undefined) window.clearTimeout(hoverExpandTimerRef.current);
     hoverExpandTimerRef.current = window.setTimeout(() => {
       hoverExpandTimerRef.current = undefined;
       if (isHoveredRef.current && compactWindowEnabledRef.current && !expansionPreviewInFlightRef.current) requestMode("expanded");
     }, COMPACT_EXPAND_DELAY_MS);
-  }, [requestMode]);
+  }, [acknowledgeCollapsedCompactAttention, requestMode]);
 
   const handlePointerLeave = useCallback(() => {
     isHoveredRef.current = false;
@@ -1509,7 +1513,7 @@ export default function IslandShell() {
     setAcknowledgedCompactAttention((current) => {
       const next = new Set<string>();
       compactAttentionCandidates.forEach((key) => {
-        if (confirmedModeRef.current === "expanded" || current.has(key)) next.add(key);
+        if (current.has(key)) next.add(key);
       });
       if (next.size === current.size && [...next].every((key) => current.has(key))) return current;
       return next;
@@ -1566,6 +1570,7 @@ export default function IslandShell() {
         style={glassStyle}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
+        onFocusCapture={acknowledgeCollapsedCompactAttention}
         onPointerDownCapture={cancelCompactHoverExpansion}
         onDoubleClick={pinExpanded}
       >

@@ -1462,7 +1462,70 @@ test("prioritizes new compact completion and intervention signals until a confir
   expect([...container.querySelectorAll<HTMLElement>(".agent-logo-button--attention")].map((button) => button.dataset.agentId)).toEqual(["hermes"]);
 });
 
-test("keeps compact attention unacknowledged when the native window does not actually expand", async () => {
+test.each(["pointer", "focus"] as const)("acknowledges compact attention when %s actually enters the collapsed capsule", async (interaction) => {
+  beginAgentStateSubscriptionMock.mockReturnValue({
+    ready: Promise.resolve({
+      initial: {
+        generatedAt: 1,
+        agents: [{
+          agentId: "hermes",
+          displayName: "Hermes",
+          aggregateStatus: "completed",
+          integrations: [],
+          environments: [{ agentId: "hermes", environment: "windows", taskId: "done", status: "completed", summary: "Done", sourceEventId: "done-1", occurredAt: 1, receivedAt: 1 }],
+        }],
+      },
+      dispose: vi.fn(),
+    }),
+    dispose: vi.fn(),
+  });
+  invokeMock.mockImplementation(createModeAwareInvoke("collapsed", (command: string) => {
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  }));
+  const { container } = renderShell();
+
+  await waitFor(() => expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(1));
+  if (interaction === "pointer") {
+    fireEvent.pointerEnter(container.querySelector<HTMLElement>(".island-canvas")!);
+  } else {
+    fireEvent.focus(screen.getByRole("button", { name: "展开" }));
+  }
+
+  expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(0);
+});
+
+test("shows completed-agent attention after collapsing even when completion was already visible while expanded", async () => {
+  beginAgentStateSubscriptionMock.mockReturnValue({
+    ready: Promise.resolve({
+      initial: {
+        generatedAt: 1,
+        agents: [{
+          agentId: "hermes",
+          displayName: "Hermes",
+          aggregateStatus: "completed",
+          integrations: [],
+          environments: [{ agentId: "hermes", environment: "windows", taskId: "done", status: "completed", summary: "Done", sourceEventId: "done-1", occurredAt: 1, receivedAt: 1 }],
+        }],
+      },
+      dispose: vi.fn(),
+    }),
+    dispose: vi.fn(),
+  });
+  invokeMock.mockImplementation(createModeAwareInvoke("expanded", (command: string) => {
+    if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
+    return Promise.resolve(undefined);
+  }));
+  const user = userEvent.setup();
+  const { container } = renderShell();
+
+  await user.click(await screen.findByRole("button", { name: "折叠" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
+
+  expect([...container.querySelectorAll<HTMLElement>(".agent-logo-button--attention")].map((button) => button.dataset.agentId)).toEqual(["hermes"]);
+});
+
+test("keeps compact attention unacknowledged when a keyboard-like expand attempt is not confirmed", async () => {
   beginAgentStateSubscriptionMock.mockReturnValue({
     ready: Promise.resolve({
       initial: {
@@ -1484,11 +1547,10 @@ test("keeps compact attention unacknowledged when the native window does not act
     if (command === "get_pending_tray_navigation" || command === "getPendingReminderNavigation") return Promise.resolve(null);
     return Promise.resolve(undefined);
   });
-  const user = userEvent.setup();
   const { container } = renderShell();
 
   await waitFor(() => expect(container.querySelectorAll(".agent-logo-button--attention")).toHaveLength(1));
-  await user.click(screen.getByRole("button", { name: "展开" }));
+  fireEvent.click(screen.getByRole("button", { name: "展开" }));
 
   await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("set_island_mode", expect.objectContaining({ mode: "expanded" })));
   await waitFor(() => expect(screen.getByRole("button", { name: "展开" })).toBeEnabled());
