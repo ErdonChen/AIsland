@@ -355,6 +355,7 @@ fn normalize_status(agent: &str, native_event: &str, payload: &serde_json::Value
         || payload.get("failed").and_then(serde_json::Value::as_bool) == Some(true);
     match (agent, native_event) {
         (_, "PermissionRequest") | (_, "pre_approval_request") => "waiting",
+        ("claude", "SessionStart") => "idle",
         (_, "SessionStart")
         | (_, "UserPromptSubmit")
         | (_, "on_session_start")
@@ -634,6 +635,7 @@ mod tests {
             ("hermes", "on_session_end", "idle"),
             ("workbuddy", "PermissionRequest", "waiting"),
             ("workbuddy", "StopFailure", "failed"),
+            ("claude", "SessionStart", "idle"),
             ("claude", "SessionEnd", "idle"),
         ];
         for (agent, event, expected) in cases {
@@ -866,6 +868,133 @@ mod tests {
             "post_llm_call",
         );
         assert_ne!(written["event_id"], second["event_id"]);
+    }
+
+    // Real Claude hooks omit event_id/sequence/occurred_at. Exercise the writer through storage
+    // and aggregation so an empty VS Code tab cannot mask another tab's completed reply.
+    #[test]
+    fn windows_claude_empty_session_and_repeated_turns_project_correctly() {
+        use crate::contracts::{AgentId, AgentStatus};
+        use crate::domain::agents::{aggregate_agent_at, parse_status_file_at};
+        use crate::repositories::agents::{AgentRepository, ProjectionOutcome};
+        use crate::storage::Storage;
+        use std::sync::Arc;
+
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("claude-windows.json");
+        let repository = AgentRepository::new(Arc::new(
+            Storage::open(&directory.path().join("test.sqlite3")).unwrap(),
+        ));
+        for (session, prompt, native_event, expected) in [
+            ("empty", None, "SessionStart", AgentStatus::Idle),
+            (
+                "active",
+                Some("round-1"),
+                "UserPromptSubmit",
+                AgentStatus::Running,
+            ),
+            ("active", Some("round-1"), "Stop", AgentStatus::Completed),
+            (
+                "active",
+                Some("round-2"),
+                "UserPromptSubmit",
+                AgentStatus::Running,
+            ),
+            ("active", Some("round-2"), "Stop", AgentStatus::Completed),
+        ] {
+            let input = serde_json::json!({
+                "session_id": session, "prompt_id": prompt,
+                "last_assistant_message": prompt,
+            })
+            .to_string();
+            let wire = run_windows_hook_for_agent_event(&input, &output, "claude", native_event);
+            let now = wire["occurred_at"].as_i64().unwrap();
+            let event =
+                parse_status_file_at("claude-windows.json", &fs::read(&output).unwrap(), now)
+                    .unwrap();
+            assert!(
+                matches!(
+                    repository.insert_event_and_project(&event, now).unwrap(),
+                    ProjectionOutcome::Advanced { .. }
+                ),
+                "{native_event} {prompt:?}"
+            );
+            assert_eq!(
+                repository.insert_event_and_project(&event, now).unwrap(),
+                ProjectionOutcome::Duplicate
+            );
+            let tasks = repository.list_tasks().unwrap();
+            assert_eq!(
+                aggregate_agent_at(AgentId::Claude, &tasks, &[], now + 3_000).aggregate_status,
+                expected
+            );
+            if native_event == "Stop" {
+                assert_eq!(
+                    tasks
+                        .iter()
+                        .find(|task| task.task_id == "session:active")
+                        .unwrap()
+                        .latest_reply_preview
+                        .as_deref(),
+                    prompt
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn windows_claude_identity_uses_prompt_or_native_order_and_fresh_legacy_invocations() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("claude-windows.json");
+        for extra in [
+            serde_json::json!({"prompt_id":"round-1"}),
+            serde_json::json!({"event_id":"native-1"}),
+            serde_json::json!({"sequence":1}),
+            serde_json::json!({"occurred_at":1_788_710_000_000i64}),
+        ] {
+            let mut input = extra;
+            input["session_id"] = "same-session".into();
+            let first =
+                run_windows_hook_for_agent_event(&input.to_string(), &output, "claude", "Stop");
+            let replay =
+                run_windows_hook_for_agent_event(&input.to_string(), &output, "claude", "Stop");
+            assert_eq!(first["event_id"], replay["event_id"]);
+        }
+        for prompt_id in [
+            serde_json::Value::Null,
+            serde_json::json!({}),
+            serde_json::json!("x".repeat(129)),
+        ] {
+            let input =
+                serde_json::json!({"session_id":"legacy", "prompt_id":prompt_id}).to_string();
+            let first = run_windows_hook_for_agent_event(&input, &output, "claude", "Stop");
+            let next = run_windows_hook_for_agent_event(&input, &output, "claude", "Stop");
+            assert_ne!(first["event_id"], next["event_id"]);
+        }
+    }
+
+    #[test]
+    fn windows_claude_compaction_preserves_existing_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("claude-windows.json");
+        let compact = br#"{"session_id":"active","source":"compact"}"#;
+        let result =
+            run_windows_hook_raw_for_agent_event(compact, &output, "claude", "SessionStart");
+        assert!(result.status.success());
+        assert!(!output.exists());
+        for event in ["UserPromptSubmit", "Stop"] {
+            run_windows_hook_for_agent_event(
+                r#"{"session_id":"active"}"#,
+                &output,
+                "claude",
+                event,
+            );
+            let before = fs::read(&output).unwrap();
+            let result =
+                run_windows_hook_raw_for_agent_event(compact, &output, "claude", "SessionStart");
+            assert!(result.status.success());
+            assert_eq!(fs::read(&output).unwrap(), before);
+        }
     }
 
     // Break caught: a missing native ID and timestamp must not put a freshly generated wall-clock

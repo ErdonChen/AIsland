@@ -15,6 +15,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Public repository and updater links now use `ErdonChen/AIsland`.
 
+## [0.2.0-preview.1] - 2026-09-07
+
+### Fixed
+
+- Opening an empty Claude Code tab in VS Code no longer keeps AIsland in the
+  working state after another conversation has completed.
+- Claude Code events now distinguish consecutive prompt rounds in the same
+  session, so completion times and latest replies continue to update.
+- Claude context compaction preserves the current task state. Older clients
+  without native event identifiers receive distinct per-invocation identities,
+  while repeated reads of a published event remain idempotent.
+
 ## [0.2.0-preview.0] - 2026-08-24
 
 ### Added

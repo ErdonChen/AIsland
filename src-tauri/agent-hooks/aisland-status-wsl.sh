@@ -12,6 +12,8 @@ for tool in jq mktemp sync mv sha256sum; do command -v "$tool" >/dev/null 2>&1 |
 LC_ALL=C IFS= read -r -N 1048576 payload || true
 if LC_ALL=C IFS= read -r -n 1 extra; then echo 'payloadTooLarge' >&2; exit 1; fi
 if ! normalized=$(printf '%s' "$payload" | jq -e -c -s 'if length == 1 and (.[0] | type == "object") then .[0] else error("invalid") end' 2>/dev/null); then echo 'invalidPayload' >&2; exit 1; fi
+# Compaction does not start or finish a task; preserve the last published state.
+if [ "$agent:$native_event" = 'claude:SessionStart' ] && printf '%s' "$normalized" | jq -e '.source == "compact"' >/dev/null; then exit 0; fi
 task_id=$(printf '%s' "$normalized" | jq -er 'if (.task_id | type) == "string" then .task_id elif (.extra.task_id | type) == "string" then .extra.task_id elif (.session_id | type) == "string" then "session:" + .session_id else empty end | select(utf8bytelength > 0 and utf8bytelength <= 256)' 2>/dev/null) || { echo 'invalidIdentifier' >&2; exit 1; }
 sequence=$(printf '%s' "$normalized" | jq -er 'if (.sequence | type) == "number" and (.sequence|floor) == .sequence and .sequence >= 0 then tostring else "" end' 2>/dev/null) || { echo 'invalidIdentifier' >&2; exit 1; }
 source_occurred_at=$(printf '%s' "$normalized" | jq -er 'if (.occurred_at | type) == "number" and (.occurred_at|floor) == .occurred_at then .occurred_at else empty end' 2>/dev/null || true)
@@ -22,11 +24,24 @@ $environment
 $task_id
 $native_event
 $sequence
-$source_occurred_at"; fi
+$source_occurred_at"
+  if [ "$agent" = claude ]; then
+    prompt_id=$(printf '%s' "$normalized" | jq -er '.prompt_id | strings | select(utf8bytelength > 0 and utf8bytelength <= 128)' 2>/dev/null || true)
+    if [ -n "$prompt_id" ]; then material="$material
+prompt:$prompt_id"
+    elif [ -z "$sequence" ] && [ "$source_occurred_at" = missing-occurred-at ]; then
+      # Linux supplies an occurrence ID without adding a uuidgen dependency.
+      IFS= read -r invocation_id < /proc/sys/kernel/random/uuid
+      material="$material
+invocation:$invocation_id"
+    fi
+  fi
+fi
 digest=$(printf '%s' "$material" | sha256sum); digest=${digest%% *}
 event_id="aisland-$agent-$environment-$digest"
 case "$agent:$native_event" in
   *:PermissionRequest|*:pre_approval_request) status=waiting;;
+  claude:SessionStart) status=idle;;
   *:SessionStart|*:UserPromptSubmit|*:on_session_start|*:pre_llm_call) status=running;;
   *:StopFailure) status=$(printf '%s' "$normalized" | jq -r 'if .failure_reason == "timeout" or .timeout == true then "timeout" else "failed" end');;
   *:Stop|*:post_llm_call) status=completed;;

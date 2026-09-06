@@ -35,6 +35,7 @@ function Get-NormalizedStatus {
     if ($extra -is [pscustomobject] -and (Get-NativeValue $extra 'choice') -eq 'timeout') { $timeout = $true }
     $failed = ((Get-NativeValue $Payload 'success') -eq $false) -or ((Get-NativeValue $Payload 'failed') -eq $true)
     if ($Event -eq 'PermissionRequest' -or $Event -eq 'pre_approval_request') { return 'waiting' }
+    if ($Id -eq 'claude' -and $Event -eq 'SessionStart') { return 'idle' }
     if ($Event -in @('SessionStart', 'UserPromptSubmit', 'on_session_start', 'pre_llm_call')) { return 'running' }
     if ($Event -eq 'StopFailure') { if ($timeout) { return 'timeout' }; return 'failed' }
     if ($Event -eq 'Stop' -or $Event -eq 'post_llm_call') { return 'completed' }
@@ -85,6 +86,8 @@ try {
     $stage = 'parseJson'
     $native = $raw | ConvertFrom-Json -ErrorAction Stop
     if ($native -isnot [pscustomobject]) { Fail-Input 'invalidPayload' }
+    # Compaction can happen inside a running turn or manually while idle. It is not a task transition.
+    if ($Agent -eq 'claude' -and $NativeEvent -eq 'SessionStart' -and (Get-NativeValue $native 'source') -eq 'compact') { exit 0 }
     $stage = 'normalize'
     $extra = Get-NativeValue $native 'extra'
     $taskId = Get-NativeValue $native 'task_id'
@@ -103,6 +106,16 @@ try {
     }
     if ($nativeEventId -isnot [string] -or [Text.Encoding]::UTF8.GetByteCount($nativeEventId) -eq 0 -or [Text.Encoding]::UTF8.GetByteCount($nativeEventId) -gt 128) {
         $nativeEventId = "$Agent`n$Environment`n$taskId`n$NativeEvent`n$sequence`n$sourceOccurredAt"
+        if ($Agent -eq 'claude') {
+            $promptId = Get-NativeValue $native 'prompt_id'
+            if ($promptId -is [string] -and [Text.Encoding]::UTF8.GetByteCount($promptId) -gt 0 -and [Text.Encoding]::UTF8.GetByteCount($promptId) -le 128) {
+                $nativeEventId += "`nprompt:$promptId"
+            } elseif ($null -eq $sequence -and $sourceOccurredAt -eq 'missing-occurred-at') {
+                # Older Claude hooks have no occurrence identity; each invocation is a new event.
+                # Re-reading the published wire file remains idempotent in the repository.
+                $nativeEventId += "`ninvocation:$([Guid]::NewGuid().ToString('N'))"
+            }
+        }
     }
     $sha256 = [Security.Cryptography.SHA256]::Create()
     try { $digest = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($nativeEventId)) } finally { $sha256.Dispose() }
