@@ -18,7 +18,7 @@
   <a href="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml"><img src="https://github.com/ErdonChen/AIsland/actions/workflows/ci.yml/badge.svg?branch=main" alt="Community quality gate"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4.svg" alt="Windows 11 x64">
-  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.2.0.0"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
+  <a href="https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.2.0.2"><img src="https://img.shields.io/badge/distribution-unsigned%20preview-orange.svg" alt="Unsigned preview available"></a>
 </p>
 
 <p align="center">
@@ -134,11 +134,11 @@ AIsland runs locally and reads supported agent session sources in read-only mode
 
 ## Download the Windows preview
 
-Current version: [`preview-v0.2.0.0`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.2.0.0)
+Current version: [`preview-v0.2.0.2`](https://github.com/ErdonChen/AIsland/releases/tag/preview-v0.2.0.2)
 
-- [Download the Windows 11 x64 NSIS installer](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.2.0.0/AIsland_0.2.0_x64-setup.exe)
-- [View SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.2.0.0/SHA256SUMS.txt)
-- SHA-256: `63586b39b309ca2fba163b26be427616862ffc68725cb20b91c69d5e4a198842`
+- [Download the Windows 11 x64 NSIS installer](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.2.0.2/AIsland_0.2.0_x64-setup.exe)
+- [View SHA256SUMS.txt](https://github.com/ErdonChen/AIsland/releases/download/preview-v0.2.0.2/SHA256SUMS.txt)
+- After downloading, verify the SHA-256 against `SHA256SUMS.txt` attached to the same release.
 
 > [!WARNING]
 > This is an unsigned preview for technical testers. Windows SmartScreen and UAC may show “Unknown publisher.” Download it only from the official AIsland GitHub repository and verify the SHA-256 checksum before running it. Do not disable Microsoft Defender or SmartScreen.

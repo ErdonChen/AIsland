@@ -2,6 +2,7 @@ use crate::contracts::{AgentId, AgentStatus, AppErrorCode, CommandError, SafeMes
 use notify::{RecursiveMode, Watcher};
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -15,6 +16,7 @@ const MAX_INCREMENTAL_JSONL_BYTES: u64 = 256 * 1024;
 const MAX_INCOMPLETE_JSONL_BYTES: usize = 1024 * 1024;
 const NATIVE_ACTIVITY_FALLBACK_MILLIS: i64 = 30 * 1000;
 const MAX_PROJECT_DIRECTORIES: usize = 2_048;
+const MAX_CODEX_CANDIDATES: usize = 64;
 const MAX_ID_BYTES: usize = 128;
 const MAX_TITLE_BYTES: usize = 1_024;
 const MAX_REPLY_BYTES: usize = 1_024;
@@ -184,6 +186,7 @@ struct AgentActivityCache {
 #[derive(Debug, Default)]
 struct NativeActivityReaderCache {
     codex: AgentActivityCache,
+    codex_sessions: BTreeMap<String, AgentActivityCache>,
     workbuddy: AgentActivityCache,
     hermes: AgentActivityCache,
     claude: AgentActivityCache,
@@ -310,9 +313,10 @@ impl NativeAgentActivityReader {
         match kind {
             NativeSessionKind::Codex => cache
                 .codex
-                .session
+                .activity
                 .as_ref()
-                .map(|session| session.activity(AgentId::Codex, now)),
+                .cloned()
+                .map(|activity| age_direct_activity(activity, now)),
             NativeSessionKind::Workbuddy => cache
                 .workbuddy
                 .session
@@ -334,6 +338,9 @@ impl NativeAgentActivityReader {
 
     fn finish_refresh(&self, kind: NativeSessionKind, now: i64, found: bool) {
         let mut cache = self.cache.lock().unwrap();
+        if kind == NativeSessionKind::Codex && !found {
+            cache.codex_sessions.clear();
+        }
         let entry = match kind {
             NativeSessionKind::Codex => &mut cache.codex,
             NativeSessionKind::Workbuddy => &mut cache.workbuddy,
@@ -360,51 +367,95 @@ impl NativeAgentActivityReader {
             return Ok(None);
         }
         let connection = open_read_only(&database_path)?;
-        let thread = connection
-            .query_row(
+        let mut statement = connection
+            .prepare(
                 "SELECT id, rollout_path,
                         COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000), title
                    FROM threads
                   WHERE archived = 0
                   ORDER BY COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000) DESC, id DESC
-                  LIMIT 1",
-                [],
-                |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, i64>(2)?,
-                        row.get::<_, String>(3)?,
-                    ))
-                },
+                  LIMIT ?1",
             )
-            .optional()
             .map_err(CommandError::from)?;
-        let Some((session_id, rollout_path, updated_at, title)) = thread else {
-            return Ok(None);
-        };
-        if !safe_identifier(&session_id) || updated_at < 0 {
-            return Ok(None);
-        }
-        let rollout_path = PathBuf::from(rollout_path);
-        if !is_owned_regular_file(&codex_root.join("sessions"), &rollout_path) {
-            return Ok(None);
-        }
+        let mut threads = statement
+            .query_map([MAX_CODEX_CANDIDATES as i64], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(CommandError::from)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(CommandError::from)?;
+        // Keep the newest session as the idle/completed fallback, and inspect only
+        // other recent candidates. Their individual offsets survive selection changes.
+        let newest = threads.first().map(|thread| thread.0.clone());
+        threads.retain(|(id, _, updated_at, _)| {
+            newest.as_ref() == Some(id)
+                || *updated_at >= now.saturating_sub(COMPLETED_FRESHNESS_MILLIS)
+        });
         let mut cache = self.cache.lock().unwrap();
-        let _ = refresh_jsonl_session(
-            &mut cache.codex,
-            &session_id,
-            &rollout_path,
-            NativeSessionKind::Codex,
-        )?;
-        let session = cache
-            .codex
-            .session
-            .as_mut()
-            .expect("successful refresh populates the Codex cache");
-        session.title = bounded_text(&title, MAX_TITLE_BYTES);
-        session.updated_at = updated_at;
-        Ok(Some(session.activity(AgentId::Codex, now)))
+        cache
+            .codex_sessions
+            .retain(|id, _| threads.iter().any(|thread| &thread.0 == id));
+        let mut selected = None;
+        let mut first_error = None;
+        let mut needs_follow_up = false;
+        for (session_id, rollout_path, updated_at, title) in threads {
+            if !safe_identifier(&session_id) || updated_at < 0 {
+                continue;
+            }
+            let rollout_path = PathBuf::from(rollout_path);
+            if !is_owned_regular_file(&codex_root.join("sessions"), &rollout_path) {
+                continue;
+            }
+            let entry = cache.codex_sessions.entry(session_id.clone()).or_default();
+            let before = entry.metrics;
+            if let Err(error) =
+                refresh_jsonl_session(entry, &session_id, &rollout_path, NativeSessionKind::Codex)
+            {
+                cache.codex_sessions.remove(&session_id);
+                first_error.get_or_insert(error);
+                continue;
+            }
+            let session = entry
+                .session
+                .as_mut()
+                .expect("successful refresh populates the Codex cache");
+            session.title = bounded_text(&title, MAX_TITLE_BYTES);
+            session.updated_at = updated_at;
+            let activity = session.activity(AgentId::Codex, now);
+            let bytes_read = entry.metrics.bytes_read.saturating_sub(before.bytes_read);
+            let parser_calls = entry
+                .metrics
+                .parser_calls
+                .saturating_sub(before.parser_calls);
+            needs_follow_up |= entry.needs_follow_up;
+            cache.codex.metrics.bytes_read =
+                cache.codex.metrics.bytes_read.saturating_add(bytes_read);
+            cache.codex.metrics.parser_calls = cache
+                .codex
+                .metrics
+                .parser_calls
+                .saturating_add(parser_calls);
+            let running = activity.status == AgentStatus::Running;
+            if selected.is_none() || running {
+                selected = Some(activity);
+            }
+            if running {
+                break;
+            }
+        }
+        if selected.is_none() {
+            if let Some(error) = first_error {
+                return Err(error);
+            }
+        }
+        cache.codex.needs_follow_up = needs_follow_up;
+        cache.codex.activity = selected.clone();
+        Ok(selected)
     }
 
     fn read_workbuddy(&self, now: i64) -> Result<Option<NativeAgentActivity>, CommandError> {
@@ -796,11 +847,19 @@ fn refresh_jsonl_session(
         ));
         let start = length.saturating_sub(MAX_JSONL_TAIL_BYTES);
         let bytes = read_file_range(&mut file, start, length)?;
+        let prefix_end = start
+            + bytes
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .map_or(0, |index| index as u64 + 1);
         cache.metrics.bytes_read = cache.metrics.bytes_read.saturating_add(bytes.len() as u64);
         let session = cache.session.as_mut().unwrap();
         session.offset = start.saturating_add(bytes.len() as u64);
         session.last_write_marker = last_write_marker;
-        consume_jsonl_bytes(session, bytes, start > 0, &mut cache.metrics);
+        consume_jsonl_bytes(session, bytes, start > 0, false, &mut cache.metrics);
+        if kind == NativeSessionKind::Codex && start > 0 && !session.saw_lifecycle {
+            restore_codex_lifecycle(&mut file, session, prefix_end, &mut cache.metrics)?;
+        }
         return Ok(JsonlRefreshOutcome::Rebuilt);
     }
 
@@ -815,7 +874,7 @@ fn refresh_jsonl_session(
         let bytes = read_file_range(&mut file, start, end)?;
         cache.metrics.bytes_read = cache.metrics.bytes_read.saturating_add(bytes.len() as u64);
         session.offset = start.saturating_add(bytes.len() as u64);
-        consume_jsonl_bytes(session, bytes, false, &mut cache.metrics);
+        consume_jsonl_bytes(session, bytes, false, false, &mut cache.metrics);
     }
     cache.needs_follow_up = session.offset < length;
     session.last_write_marker = last_write_marker;
@@ -836,6 +895,7 @@ fn consume_jsonl_bytes(
     session: &mut CachedNativeSession,
     mut bytes: Vec<u8>,
     discard_leading_partial: bool,
+    lifecycle_only: bool,
     metrics: &mut NativeActivityScanMetrics,
 ) {
     if discard_leading_partial {
@@ -874,6 +934,13 @@ fn consume_jsonl_bytes(
         .filter(|line| !line.is_empty())
     {
         if line.len() <= MAX_INCOMPLETE_JSONL_BYTES {
+            if lifecycle_only {
+                if codex_lifecycle_candidate(line) {
+                    metrics.parser_calls = metrics.parser_calls.saturating_add(1);
+                    parse_codex_line(session, line);
+                }
+                continue;
+            }
             if session.kind == NativeSessionKind::Workbuddy
                 && json_string_field_equals(line, b"type", b"message")
                 && json_string_field_equals(line, b"role", b"user")
@@ -898,6 +965,50 @@ fn consume_jsonl_bytes(
         session.incomplete_line.clear();
         session.discarding_oversized_line = true;
     }
+}
+
+fn codex_lifecycle_candidate(line: &[u8]) -> bool {
+    json_string_field_equals(line, b"type", b"event_msg")
+        && [
+            b"task_started".as_slice(),
+            b"task_complete".as_slice(),
+            b"turn_aborted".as_slice(),
+        ]
+        .into_iter()
+        .any(|event| json_string_field_equals(line, b"type", event))
+}
+
+fn restore_codex_lifecycle(
+    file: &mut File,
+    session: &mut CachedNativeSession,
+    prefix_end: u64,
+    metrics: &mut NativeActivityScanMetrics,
+) -> Result<(), CommandError> {
+    // Tool output can push the last lifecycle event outside the reply-preview tail.
+    // Recover just lifecycle state once, in bounded chunks, without disturbing the
+    // current tail offset, reply, or partial line used by subsequent append reads.
+    let mut lifecycle = CachedNativeSession::new(
+        session.session_id.clone(),
+        session.path.clone(),
+        session.identity,
+        session.last_write_marker,
+        NativeSessionKind::Codex,
+    );
+    let mut start = 0;
+    while start < prefix_end {
+        let end = start
+            .saturating_add(MAX_INCREMENTAL_JSONL_BYTES)
+            .min(prefix_end);
+        let bytes = read_file_range(file, start, end)?;
+        metrics.bytes_read = metrics.bytes_read.saturating_add(bytes.len() as u64);
+        consume_jsonl_bytes(&mut lifecycle, bytes, false, true, metrics);
+        start = end;
+    }
+    if lifecycle.saw_lifecycle {
+        session.status = lifecycle.status;
+        session.saw_lifecycle = true;
+    }
+    Ok(())
 }
 
 fn native_line_candidate(kind: NativeSessionKind, line: &[u8]) -> bool {
@@ -1585,7 +1696,9 @@ mod tests {
             .unwrap();
         let first_metrics = reader.scan_metrics(AgentId::Codex);
         assert_eq!(first.latest_reply.as_deref(), Some("latest safe reply"));
-        assert_eq!(first_metrics.bytes_read, MAX_JSONL_TAIL_BYTES);
+        let length = fs::metadata(&rollout).unwrap().len();
+        assert!(first_metrics.bytes_read >= length);
+        assert!(first_metrics.bytes_read <= length + MAX_INCREMENTAL_JSONL_BYTES);
         assert!(first_metrics.parser_calls > 0);
 
         let second = reader
@@ -2020,13 +2133,183 @@ mod tests {
     }
 
     #[test]
+    fn codex_running_lifecycle_before_the_initial_tail_is_restored() {
+        let directory = tempfile::tempdir().unwrap();
+        let rollout = create_codex_fixture(
+            directory.path(),
+            100_000,
+            &[serde_json::json!({"type":"event_msg","payload":{"type":"task_started"}})],
+        );
+        let filler = format!(
+            "{{\"type\":\"response_item\",\"payload\":{{\"type\":\"function_call_output\",\"output\":\"{}\"}}}}\n",
+            "x".repeat(4_000)
+        );
+        let started = fs::read(&rollout).unwrap();
+        let empty_padding = "{\"type\":\"response_item\",\"payload\":\"\"}\n";
+        let padding = format!(
+            "{{\"type\":\"response_item\",\"payload\":\"{}\"}}\n",
+            "x".repeat(MAX_INCREMENTAL_JSONL_BYTES as usize - 16 - empty_padding.len())
+        );
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(&rollout)
+            .unwrap();
+        file.write_all(padding.as_bytes()).unwrap();
+        file.write_all(&started).unwrap();
+        let mut written = 0_u64;
+        while written <= MAX_JSONL_TAIL_BYTES {
+            file.write_all(filler.as_bytes()).unwrap();
+            written += filler.len() as u64;
+        }
+        drop(file);
+
+        let reader = NativeAgentActivityReader::new(directory.path().to_path_buf());
+        let activity = reader
+            .latest_activity(AgentId::Codex, 100_100)
+            .unwrap()
+            .unwrap();
+        assert_eq!(activity.status, AgentStatus::Running);
+        assert_eq!(activity.latest_reply, None);
+        let metrics = reader.scan_metrics(AgentId::Codex);
+        reader.latest_activity(AgentId::Codex, 100_200).unwrap();
+        assert_eq!(reader.scan_metrics(AgentId::Codex), metrics);
+        let appended = append_json_line(
+            &rollout,
+            &serde_json::json!({"type":"event_msg","payload":{"type":"task_complete"}}),
+        );
+        set_codex_updated_at(directory.path(), 101_000);
+        reader.mark_dirty_for_test(AgentId::Codex);
+        assert_eq!(
+            reader
+                .latest_activity(AgentId::Codex, 101_100)
+                .unwrap()
+                .unwrap()
+                .status,
+            AgentStatus::Completed
+        );
+        assert_eq!(
+            reader.scan_metrics(AgentId::Codex).bytes_read - metrics.bytes_read,
+            appended.len() as u64
+        );
+    }
+
+    #[test]
+    fn codex_newer_completed_session_does_not_hide_another_running_session() {
+        let directory = tempfile::tempdir().unwrap();
+        let running_rollout = create_codex_fixture(
+            directory.path(),
+            100_000,
+            &[serde_json::json!({"type":"event_msg","payload":{"type":"task_started"}})],
+        );
+        let reader = NativeAgentActivityReader::new(directory.path().to_path_buf());
+        assert_eq!(
+            reader
+                .latest_activity(AgentId::Codex, 100_100)
+                .unwrap()
+                .unwrap()
+                .status,
+            AgentStatus::Running
+        );
+        let completed_rollout = directory.path().join(".codex/sessions/completed.jsonl");
+        fs::write(
+            &completed_rollout,
+            "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\"}}\n",
+        )
+        .unwrap();
+        Connection::open(directory.path().join(".codex/state_5.sqlite"))
+            .unwrap()
+            .execute(
+                "INSERT INTO threads(id, rollout_path, updated_at, updated_at_ms, title, archived)
+                 VALUES ('completed-session', ?1, 101, 101000, 'Completed task', 0)",
+                rusqlite::params![completed_rollout.to_string_lossy()],
+            )
+            .unwrap();
+        reader.mark_dirty_for_test(AgentId::Codex);
+        let activity = reader
+            .latest_activity(AgentId::Codex, 101_100)
+            .unwrap()
+            .unwrap();
+        assert_eq!(activity.session_id, "codex-session");
+        assert_eq!(activity.status, AgentStatus::Running);
+        let before = reader.scan_metrics(AgentId::Codex);
+        let appended = append_json_line(
+            &running_rollout,
+            &serde_json::json!({"type":"event_msg","payload":{"type":"task_complete"}}),
+        );
+        reader.mark_dirty_for_test(AgentId::Codex);
+        let completed = reader
+            .latest_activity(AgentId::Codex, 102_100)
+            .unwrap()
+            .unwrap();
+        assert_eq!(completed.session_id, "completed-session");
+        assert_eq!(completed.status, AgentStatus::Completed);
+        assert_eq!(
+            reader.scan_metrics(AgentId::Codex).bytes_read - before.bytes_read,
+            appended.len() as u64
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn codex_unreadable_candidate_does_not_hide_another_running_session() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let directory = tempfile::tempdir().unwrap();
+        create_codex_fixture(
+            directory.path(),
+            100_000,
+            &[serde_json::json!({"type":"event_msg","payload":{"type":"task_started"}})],
+        );
+        let locked_rollout = directory.path().join(".codex/sessions/locked.jsonl");
+        fs::write(
+            &locked_rollout,
+            "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\"}}\n",
+        )
+        .unwrap();
+        Connection::open(directory.path().join(".codex/state_5.sqlite"))
+            .unwrap()
+            .execute(
+                "INSERT INTO threads(id, rollout_path, updated_at, updated_at_ms, title, archived)
+                 VALUES ('locked-session', ?1, 101, 101000, 'Locked task', 0)",
+                rusqlite::params![locked_rollout.to_string_lossy()],
+            )
+            .unwrap();
+        let locked_file = OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&locked_rollout)
+            .unwrap();
+        assert!(is_owned_regular_file(
+            &directory.path().join(".codex/sessions"),
+            &locked_rollout
+        ));
+        assert!(File::open(&locked_rollout).is_err());
+
+        let reader = NativeAgentActivityReader::new(directory.path().to_path_buf());
+        let activity = reader
+            .latest_activity(AgentId::Codex, 101_100)
+            .unwrap()
+            .unwrap();
+        assert_eq!(activity.session_id, "codex-session");
+        assert_eq!(activity.status, AgentStatus::Running);
+        assert!(!reader
+            .cache
+            .lock()
+            .unwrap()
+            .codex_sessions
+            .contains_key("locked-session"));
+        drop(locked_file);
+    }
+
+    #[test]
     fn codex_session_switch_rebuilds_from_the_new_rollout() {
         let directory = tempfile::tempdir().unwrap();
         create_codex_fixture(
             directory.path(),
             100_000,
             &[
-                serde_json::json!({"type":"event_msg","payload":{"type":"agent_message","message":"old session","phase":"commentary"}}),
+                serde_json::json!({"type":"event_msg","payload":{"type":"agent_message","message":"old session","phase":"final"}}),
             ],
         );
         let reader = NativeAgentActivityReader::new(directory.path().to_path_buf());
