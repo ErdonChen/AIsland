@@ -502,6 +502,84 @@ mod tests {
     }
 
     #[test]
+    fn native_session_selection_can_return_to_an_older_activity_without_duplicate_writes() {
+        let running = NativeAgentActivity {
+            agent_id: AgentId::Codex,
+            session_id: "older-running-session".into(),
+            status: AgentStatus::Running,
+            title: Some("Long task".into()),
+            latest_reply: Some("Earlier progress".into()),
+            occurred_at: 1_000,
+            source_bytes: 100,
+        };
+        let completed = NativeAgentActivity {
+            agent_id: AgentId::Codex,
+            session_id: "newer-completed-session".into(),
+            status: AgentStatus::Completed,
+            title: Some("Short task".into()),
+            latest_reply: Some("Short task result".into()),
+            occurred_at: 2_000,
+            source_bytes: 200,
+        };
+        let (_directory, watcher, activity) = watcher_with_native_activity(vec![running.clone()]);
+        for (now, selected, expected) in [
+            (1_100, Some(running.clone()), AgentStatus::Running),
+            (2_100, Some(completed.clone()), AgentStatus::Completed),
+            (3_100, Some(running.clone()), AgentStatus::Running),
+            (4_100, Some(completed), AgentStatus::Completed),
+            (5_100, None, AgentStatus::Idle),
+            (6_100, Some(running), AgentStatus::Running),
+        ] {
+            *activity.activities.lock().unwrap() = selected.clone().into_iter().collect();
+            assert!(watcher.reconcile_process_presence(now).unwrap() > 0);
+            assert_eq!(
+                watcher.snapshot(now).unwrap().agents[0].aggregate_status,
+                expected,
+                "the selected activity must reach the persisted native-session projection"
+            );
+            let before = watcher.repository.list_tasks().unwrap();
+            assert_eq!(watcher.reconcile_process_presence(now + 1).unwrap(), 0);
+            assert_eq!(watcher.repository.list_tasks().unwrap(), before);
+            if let Some(selected) = selected {
+                assert_eq!(
+                    activity.activities.lock().unwrap()[0].occurred_at,
+                    selected.occurred_at,
+                    "source time remains unchanged for freshness checks"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn native_session_selection_accepts_a_legacy_event_id_without_rewriting_it() {
+        let running = NativeAgentActivity {
+            agent_id: AgentId::Codex,
+            session_id: "legacy-session".into(),
+            status: AgentStatus::Running,
+            title: Some("Existing task".into()),
+            latest_reply: None,
+            occurred_at: 1_000,
+            source_bytes: 100,
+        };
+        let legacy = native_activity_event(running.clone());
+        let (_directory, watcher, _activity) = watcher_with_native_activity(vec![running]);
+        watcher
+            .repository
+            .insert_event_and_project(&legacy, 1_100)
+            .unwrap();
+        watcher.reconcile_process_presence(1_200).unwrap();
+        let before = watcher.repository.list_tasks().unwrap();
+        let snapshot = watcher.snapshot(1_200).unwrap();
+        assert_eq!(snapshot.agents[0].aggregate_status, AgentStatus::Running);
+        assert_eq!(
+            snapshot.agents[0].environments[0].source_event_id,
+            legacy.event_id
+        );
+        assert_eq!(watcher.reconcile_process_presence(1_300).unwrap(), 0);
+        assert_eq!(watcher.repository.list_tasks().unwrap(), before);
+    }
+
+    #[test]
     fn opened_desktop_or_terminal_agents_are_idle_until_a_hook_reports_work_then_turn_offline() {
         let (_directory, watcher, presence) =
             watcher_with_presence(vec![AgentId::Codex, AgentId::Workbuddy]);
@@ -569,6 +647,166 @@ mod tests {
         assert_eq!(codex.aggregate_status, AgentStatus::Completed);
         assert_eq!(codex.environments.len(), 1);
         assert_eq!(codex.environments[0].source_event_id, "hook-event");
+    }
+
+    #[test]
+    fn hook_observation_expiry_hides_old_completed_and_idle_without_changing_history() {
+        let (directory, watcher, presence) = watcher_with_presence(vec![AgentId::Claude]);
+        watcher.reconcile_process_presence(1_000).unwrap();
+        let status_dir = directory.path().join("agent-status");
+        std::fs::create_dir(&status_dir).unwrap();
+        let path = status_dir.join("claude-windows.json");
+        std::fs::write(
+            &path,
+            fixture(
+                "Finished",
+                "claude",
+                "windows",
+                "completed",
+                "old-completed",
+            ),
+        )
+        .unwrap();
+        watcher.process_path(&path, 1_000).unwrap();
+        let mut idle: serde_json::Value = serde_json::from_slice(&fixture(
+            "Closed session",
+            "claude",
+            "windows",
+            "idle",
+            "old-idle",
+        ))
+        .unwrap();
+        idle["task_id"] = "another-session".into();
+        std::fs::write(&path, serde_json::to_vec(&idle).unwrap()).unwrap();
+        watcher.process_path(&path, 1_001).unwrap();
+        presence.running.lock().unwrap().clear();
+        watcher.reconcile_process_presence(2_000).unwrap();
+        let before = watcher.repository.list_tasks().unwrap();
+
+        let now = 1_000 + 5 * 24 * 60 * 60 * 1_000;
+        watcher.initial_scan(now).unwrap();
+        assert_eq!(
+            watcher.source_states.lock().unwrap()["claude-windows.json"],
+            LockedSourceState::Invalid,
+            "an old source file remains present but falls outside the input timestamp window"
+        );
+        let snapshot = watcher.snapshot(now).unwrap();
+        let claude = snapshot
+            .agents
+            .iter()
+            .find(|agent| agent.agent_id == AgentId::Claude)
+            .unwrap();
+        assert_eq!(claude.aggregate_status, AgentStatus::Offline);
+        assert!(claude
+            .environments
+            .iter()
+            .all(|observation| observation.status == AgentStatus::Offline));
+        assert_eq!(watcher.repository.list_tasks().unwrap(), before);
+        assert!(watcher
+            .repository
+            .get_event_by_id("old-completed")
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn hook_observation_expiry_preserves_fresh_completion_without_a_process() {
+        let (directory, watcher, _presence) = watcher_with_presence(Vec::new());
+        let status_dir = directory.path().join("agent-status");
+        std::fs::create_dir(&status_dir).unwrap();
+        let path = status_dir.join("claude-windows.json");
+        std::fs::write(
+            &path,
+            fixture(
+                "Finished",
+                "claude",
+                "windows",
+                "completed",
+                "fresh-completed",
+            ),
+        )
+        .unwrap();
+        watcher.process_path(&path, 1_000).unwrap();
+        let expires_at = 1_000 + crate::services::native_agent_activity::COMPLETED_FRESHNESS_MILLIS;
+        watcher.reconcile_process_presence(expires_at).unwrap();
+        assert_eq!(
+            watcher.snapshot(expires_at).unwrap().agents[3].aggregate_status,
+            AgentStatus::Completed
+        );
+        assert_eq!(
+            watcher.snapshot(expires_at + 1).unwrap().agents[3].aggregate_status,
+            AgentStatus::Offline
+        );
+    }
+
+    #[test]
+    fn hook_observation_expiry_restores_process_idle_and_accepts_the_next_round() {
+        let (directory, watcher, _presence) = watcher_with_presence(vec![AgentId::Codex]);
+        watcher.reconcile_process_presence(1_000).unwrap();
+        let status_dir = directory.path().join("agent-status");
+        std::fs::create_dir(&status_dir).unwrap();
+        let path = status_dir.join("codex-windows.json");
+        std::fs::write(
+            &path,
+            fixture("Finished", "codex", "windows", "completed", "round-one"),
+        )
+        .unwrap();
+        watcher.process_path(&path, 1_000).unwrap();
+        let now = 1_001 + crate::services::native_agent_activity::COMPLETED_FRESHNESS_MILLIS;
+        assert_eq!(
+            watcher.snapshot(now).unwrap().agents[0].aggregate_status,
+            AgentStatus::Idle
+        );
+        for (sequence, status, expected) in [
+            (2, "running", AgentStatus::Running),
+            (3, "completed", AgentStatus::Completed),
+        ] {
+            let occurred_at = now + sequence as i64;
+            std::fs::write(
+                &path,
+                fixture_with_sequence(
+                    "Next round",
+                    "codex",
+                    "windows",
+                    status,
+                    &format!("round-two-{status}"),
+                    sequence,
+                    occurred_at,
+                ),
+            )
+            .unwrap();
+            watcher.process_path(&path, occurred_at).unwrap();
+            assert_eq!(
+                watcher.snapshot(occurred_at).unwrap().agents[0].aggregate_status,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn hook_observation_expiry_does_not_treat_missing_windows_processes_as_wsl_exit() {
+        let (directory, watcher, _presence) = watcher_with_presence(Vec::new());
+        let status_dir = directory.path().join("agent-status");
+        std::fs::create_dir(&status_dir).unwrap();
+        for (agent, status) in [("claude", "running"), ("codex", "completed")] {
+            let path = status_dir.join(format!("{agent}-wsl.json"));
+            std::fs::write(
+                &path,
+                fixture("WSL session", agent, "wsl", status, &format!("wsl-{agent}")),
+            )
+            .unwrap();
+            watcher.process_path(&path, 1_000).unwrap();
+        }
+        watcher.reconcile_process_presence(2_000).unwrap();
+        let fresh = watcher.snapshot(2_000).unwrap();
+        assert_eq!(fresh.agents[0].aggregate_status, AgentStatus::Completed);
+        assert_eq!(fresh.agents[3].aggregate_status, AgentStatus::Running);
+
+        let expired = watcher
+            .snapshot(1_001 + crate::services::native_agent_activity::COMPLETED_FRESHNESS_MILLIS)
+            .unwrap();
+        assert_eq!(expired.agents[0].aggregate_status, AgentStatus::Offline);
+        assert_eq!(expired.agents[3].aggregate_status, AgentStatus::Running);
     }
 
     #[test]
@@ -1498,7 +1736,7 @@ use crate::repositories::{
 use crate::services::{
     native_agent_activity::{
         NativeAgentActivity, NativeAgentActivityReader, NativeAgentActivitySource,
-        NATIVE_ACTIVITY_TASK_ID,
+        COMPLETED_FRESHNESS_MILLIS, NATIVE_ACTIVITY_TASK_ID,
     },
     now_millis,
     reminder_scheduler::ReminderService,
@@ -1885,11 +2123,45 @@ impl AgentStatusWatcher {
             } else {
                 None
             };
+            let observed_at = existing.map_or(received_at, |observation| {
+                received_at.max(observation.occurred_at.saturating_add(1))
+            });
             let event = match activity {
-                Some(activity) => native_activity_event(activity),
+                Some(activity) => {
+                    let mut event = native_activity_event(activity);
+                    if existing.is_some_and(|observation| {
+                        let source_id = observation
+                            .source_event_id
+                            .split_once(":observed:")
+                            .map_or(observation.source_event_id.as_str(), |(source_id, _)| {
+                                source_id
+                            });
+                        source_id == event.event_id && observation.status == event.status
+                    }) {
+                        continue;
+                    }
+                    // The selected session may be older than the previous one, or
+                    // return to a fingerprint already present in event history.
+                    // Keep source identity for dedupe, but order selection changes
+                    // by observation time without altering source freshness.
+                    event.event_id = format!("{}:observed:{observed_at}", event.event_id);
+                    event.occurred_at = observed_at;
+                    event
+                }
+                None if existing.is_some_and(|observation| {
+                    observation.status
+                        == if running.contains(&agent_id) {
+                            AgentStatus::Idle
+                        } else {
+                            AgentStatus::Offline
+                        }
+                }) =>
+                {
+                    continue
+                }
                 None if existing.is_some() => ValidatedAgentEvent {
                     event_id: format!(
-                        "native:{}:{}:{received_at}",
+                        "native:{}:{}:{observed_at}",
                         agent_name(&agent_id),
                         if running.contains(&agent_id) {
                             "idle"
@@ -1910,7 +2182,7 @@ impl AgentStatusWatcher {
                     project: None,
                     message: None,
                     path: None,
-                    occurred_at: received_at,
+                    occurred_at: observed_at,
                 },
                 None => continue,
             };
@@ -2167,6 +2439,18 @@ impl AgentStatusWatcher {
                 PROCESS_PRESENCE_TASK_ID | NATIVE_ACTIVITY_TASK_ID
             ) {
                 return true;
+            }
+            // Hook files and task history survive session exit. Once their inactive
+            // state is no longer fresh, let current process/native presence surface.
+            if matches!(
+                observation.status,
+                AgentStatus::Completed | AgentStatus::Idle
+            ) && generated_at
+                > observation
+                    .occurred_at
+                    .saturating_add(COMPLETED_FRESHNESS_MILLIS)
+            {
+                return false;
             }
             let key = format!(
                 "{}-{}.json",

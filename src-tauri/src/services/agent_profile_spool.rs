@@ -4269,6 +4269,22 @@ mod tests {
     }
 
     #[cfg(windows)]
+    const ROLLBACK_CRASH_EXIT_CODE: i32 = 86;
+
+    #[cfg(windows)]
+    fn terminate_rollback_fixture() -> ! {
+        use windows::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
+
+        // End only this fixture process without Rust destructors or DLL cleanup.
+        // Unlike abort, this is not an unhandled exception that opens WER dialogs.
+        unsafe {
+            TerminateProcess(GetCurrentProcess(), ROLLBACK_CRASH_EXIT_CODE as u32)
+                .expect("failed to terminate the rollback fixture process");
+        }
+        unreachable!("terminating the current process cannot return");
+    }
+
+    #[cfg(windows)]
     #[test]
     fn rollback_crash_child_fixture() {
         let Ok(root) = std::env::var("AISLAND_ROLLBACK_CRASH_ROOT") else {
@@ -4302,7 +4318,7 @@ mod tests {
                 serde_json::from_slice(&fs::read(&paths.journal).unwrap()).unwrap();
             execute_rollback_journal(&descriptor, journal, &mut |_, current| {
                 if current == RollbackPhase::AfterCandidateSyncBeforeIdentityJournal {
-                    std::process::abort();
+                    terminate_rollback_fixture();
                 }
             })
             .unwrap();
@@ -4340,7 +4356,7 @@ mod tests {
                         _ => false,
                     };
                     if should_abort {
-                        std::process::abort();
+                        terminate_rollback_fixture();
                     }
                 }
                 let cleanup_phase = match current {
@@ -4351,7 +4367,7 @@ mod tests {
                     _ => None,
                 };
                 if cleanup_phase == Some(phase.as_str()) {
-                    std::process::abort();
+                    terminate_rollback_fixture();
                 }
                 let current = match current {
                     RollbackPhase::AfterJournalPrepared => "journal",
@@ -4372,7 +4388,7 @@ mod tests {
                     RollbackPhase::BeforeLock | RollbackPhase::AfterLockBeforeCommit => return,
                 };
                 if current == phase {
-                    std::process::abort();
+                    terminate_rollback_fixture();
                 }
             })
             .unwrap();
@@ -4408,7 +4424,11 @@ mod tests {
                 .stderr(Stdio::null())
                 .status()
                 .unwrap();
-            assert!(!status.success(), "fixture did not terminate at {phase}");
+            assert_eq!(
+                status.code(),
+                Some(ROLLBACK_CRASH_EXIT_CODE),
+                "fixture did not terminate at {phase}"
+            );
 
             let descriptor = descriptor(root.path(), PresetAgentAdapterId::Kimi);
             let recovered_once = recover_rollback_journal(&descriptor)
@@ -4450,7 +4470,11 @@ mod tests {
                 .stderr(Stdio::null())
                 .status()
                 .unwrap();
-            assert!(!status.success(), "fixture did not terminate at {phase}");
+            assert_eq!(
+                status.code(),
+                Some(ROLLBACK_CRASH_EXIT_CODE),
+                "fixture did not terminate at {phase}"
+            );
 
             let descriptor = descriptor(root.path(), PresetAgentAdapterId::Kimi);
             let paths = rollback_paths(&descriptor.config_path).unwrap();
@@ -4491,7 +4515,11 @@ mod tests {
             .stderr(Stdio::null())
             .status()
             .unwrap();
-        assert!(!status.success(), "fixture did not terminate at {phase}");
+        assert_eq!(
+            status.code(),
+            Some(ROLLBACK_CRASH_EXIT_CODE),
+            "fixture did not terminate at {phase}"
+        );
 
         let descriptor = descriptor(root.path(), PresetAgentAdapterId::Kimi);
         assert!(recover_rollback_journal(&descriptor).unwrap());
@@ -4521,7 +4549,11 @@ mod tests {
             .stderr(Stdio::null())
             .status()
             .unwrap();
-        assert!(!status.success(), "fixture did not terminate at {phase}");
+        assert_eq!(
+            status.code(),
+            Some(ROLLBACK_CRASH_EXIT_CODE),
+            "fixture did not terminate at {phase}"
+        );
 
         let descriptor = descriptor(root.path(), PresetAgentAdapterId::Kimi);
         let paths = rollback_paths(&descriptor.config_path).unwrap();
@@ -4559,7 +4591,11 @@ mod tests {
                 .stderr(Stdio::null())
                 .status()
                 .unwrap();
-            assert!(!status.success(), "fixture did not terminate at {phase}");
+            assert_eq!(
+                status.code(),
+                Some(ROLLBACK_CRASH_EXIT_CODE),
+                "fixture did not terminate at {phase}"
+            );
 
             let descriptor = descriptor(root.path(), PresetAgentAdapterId::Kimi);
             assert!(recover_rollback_journal(&descriptor).unwrap(), "{phase}");

@@ -15,6 +15,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Public repository and updater links now use `ErdonChen/AIsland`.
 
+## [0.2.0-preview.2] - 2026-09-12
+
+### Fixed
+
+- Codex tasks remain visible as running when long tool logs push their lifecycle
+  events beyond the initial log tail. Recovery reads bounded chunks and preserves
+  incremental updates.
+- Concurrent Codex tasks no longer disappear behind a newer completed or idle
+  task. Session caches survive selection changes, and an unreadable session does
+  not hide other available tasks.
+- Native task selection changes now reach the status projection even when the
+  selected session has an older source timestamp. Switching back to a previously
+  observed session works, while repeated reads remain idempotent.
+- Completed and idle Hook observations, including old Claude Code completions,
+  leave the current status display after five minutes. Stored event history is
+  preserved, including across application restarts.
+- Windows rollback-crash tests terminate their child fixtures without opening
+  Windows Error Reporting dialogs, while still checking crash recovery.
+
 ## [0.2.0-preview.1] - 2026-09-07
 
 ### Fixed
