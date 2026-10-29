@@ -27,6 +27,7 @@ jobs:
       - name: Require a matching sign-off on every commit
         shell: pwsh
         env:
+          PR_ACTOR: ${{ github.actor }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -37,7 +38,11 @@ jobs:
             $authorEmail = git show -s --format=%ae $commit
             $required = "Signed-off-by: $authorName <$authorEmail>"
             $message = git show -s --format=%B $commit | Out-String
-            if ($message -notmatch "(?im)^$([regex]::Escape($required))\s*$") {
+            $matchesAuthor = $message -match "(?im)^$([regex]::Escape($required))\s*$"
+            $matchesDependabot = $env:PR_ACTOR -ceq 'dependabot[bot]' -and
+              $authorEmail -ceq '49699333+dependabot[bot]@users.noreply.github.com' -and
+              $message -match '(?m)^Signed-off-by: dependabot\[bot\] <support@github\.com>\s*$'
+            if (-not ($matchesAuthor -or $matchesDependabot)) {
               $failed += "$commit requires '$required'"
             }
           }
