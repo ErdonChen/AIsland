@@ -41,7 +41,13 @@
     "@vitejs/plugin-react": "^4.6.0",
     "jsdom": "^30.0.1",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici": "^8.10.2",
+      "source-map-js": "^1.2.2"
+    }
   }
 }
